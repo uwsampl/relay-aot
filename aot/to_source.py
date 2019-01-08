@@ -1,7 +1,6 @@
 from . import little_cpp
 from tvm import relay
 from tvm.relay import _module
-from tvm.relay.prelude import Prelude
 
 class ExprWithStmt:
     def __init__(self, expr, stmt=""):
@@ -416,14 +415,6 @@ def mk_file(body, use_gpu):
       const TensorValueNode* tv = v.as<TensorValueNode>();
       CHECK(tv);
       return tv->data;
-    }}
-    ConValue TagToCV(size_t tag, const tvm::Array<Value>& fields) {{
-      NodePtr<ConValueNode> n = make_node<ConValueNode>();
-      NodePtr<ConstructorNode> con = make_node<ConstructorNode>();
-      con->tag = tag;
-      n->con = Constructor(con);
-      n->fields = fields;
-      return ConValue(n);
     }}
     {body}
     """

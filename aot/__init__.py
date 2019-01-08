@@ -6,7 +6,6 @@ import tempfile
 import tvm
 from tvm import relay, get_global_func, target, register_func
 from tvm.relay.expr import Expr, Let
-from tvm.relay.adt import Constructor
 from tvm.relay.expr_functor import ExprFunctor
 from tvm.relay.backend import compile_engine
 from .little_cpp import PackedCall, CPPFunction, Invoke, Decl, CPPIf, CPPTuple, CPPMatch, CPPConstructor, CPPTupleGetItem
@@ -119,9 +118,6 @@ def fuse_check(e, mod):
                 vgv.add(gv)
                 self.visit(mod[gv])
 
-        def visit_constructor(self, c):
-            pass
-
         def visit_op(self, op):
             pass
 
@@ -200,8 +196,6 @@ class AoTCompiler(ExprFunctor):
     def visit_call(self, call: Expr) -> Expr:
         if is_primitive(call.op):
             return self.mk_primitive_op(call.op, call.args, call.checked_type)
-        elif isinstance(call.op, Constructor):
-            return CPPConstructor(call.op.tag, [self.visit(arg) for arg in call.args])
         else:
             args = [self.visit(arg) for arg in call.args]
             fn = self.visit(call.op)
