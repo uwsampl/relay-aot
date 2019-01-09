@@ -85,7 +85,7 @@ def test_abs():
     cfunc = compile(mod, func)
     a = tvm.nd.array(np.array(12.0, dtype='float32'))
     output = cfunc(a)
-    np.testingo.assert_allclose(output.asnumpy(), np.array(12.0, dtype='float32'))
+    np.testing.assert_allclose(output.asnumpy(), np.array(12.0, dtype='float32'))
     a = tvm.nd.array(np.array(-34.0, dtype='float32'))
     output = cfunc(a)
     np.testing.assert_allclose(output.asnumpy(), np.array(34.0, dtype='float32'))
