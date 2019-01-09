@@ -4,6 +4,7 @@ import os
 import subprocess
 import tempfile
 import tvm
+import time
 from tvm import relay, get_global_func, target, register_func
 from tvm.relay.expr import Expr, Let
 from tvm.relay.expr_functor import ExprFunctor
@@ -70,11 +71,6 @@ def compile_cpp(source, lib_name, flags=None, lib_path=None):
 
     proc = subprocess.run(command)
     assert proc.returncode == 0
-    #cleanup = [
-    #    "rm",
-    #    source_path
-    #]
-    #assert subprocess.run(cleanup).returncode == 0
 
 def load_lib(name):
     return ctypes.CDLL(name, ctypes.RTLD_GLOBAL)
@@ -187,7 +183,7 @@ class AoTCompiler(ExprFunctor):
             num_param = len(func.params)
         cc_key = compile_engine.CCacheKey(func, self.tgt)
         hash = relay.ir_pass.structural_hash(func)
-        name = f"op{hash}"
+        name = f"op_{hash}"
         if not get_global_func(name, allow_missing=True):
             jit_func = self.engine.jit(cc_key, self.tgt)
             register_func(name, jit_func)
