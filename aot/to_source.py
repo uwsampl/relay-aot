@@ -110,7 +110,7 @@ class ToSource:
 
     def pattern_var(self, pat, var_set):
         if isinstance(pat, relay.PatternConstructor):
-            for x in pat.pat:
+            for x in pat.patterns:
                 self.pattern_var(x, var_set)
         elif isinstance(pat, relay.PatternVar):
             assert pat.var not in var_set
@@ -140,21 +140,21 @@ class ToSource:
             if isinstance(pat, relay.PatternConstructor):
                 ok_case = ""
                 bind_names = []
-                assert len(pat.con.inp) == len(pat.pat)
-                for i, input_type in enumerate(pat.con.inp):
+                assert len(pat.constructor.inputs) == len(pat.patterns)
+                for i, input_type in enumerate(pat.constructor.inputs):
                     bind_name = self.fresh_local_name()
                     bind_names.append(bind_name)
                     t = self.visit_type(input_type)
                     e = f"{data_name}->fields[{i}]"
                     ok_case += f"{t} {bind_name} = {self.downcast(e, t)};\n"
-                for bind_name, p in zip(bind_names, pat.pat):
+                for bind_name, p in zip(bind_names, pat.patterns):
                     next_label = self.fresh_label_name()
                     ok_case += visit_pattern(p, bind_name, fail_label, next_label)
                     ok_case += f"{next_label}:\n"
                 ok_case += f"goto {ok_label};"
                 return f"""
-                CHECK({data_name}->con->tag != -1);
-                if ({data_name}->con->tag == {pat.con.tag}) {{
+                CHECK({data_name}->constructor->tag != -1);
+                if ({data_name}->constructor->tag == {pat.constructor.tag}) {{
                   {ok_case}
                 }} else {{
                   goto {fail_label};
@@ -169,7 +169,7 @@ class ToSource:
 
         in_name = self.fresh_local_name()
         out_name = self.fresh_local_name()
-        stmt_str += f"ConValue {in_name} = {vd.expr};\n"
+        stmt_str += f"ConstructorValue {in_name} = {vd.expr};\n"
         stmt_str += f"{self.visit_type(node.relay_type)} {out_name};\n"
         match_finish_label = self.fresh_label_name()
         for c in node.clause:
@@ -225,7 +225,7 @@ class ToSource:
         elif isinstance(node, relay.TupleType):
             res = "TupleValue"
         elif isinstance(node, relay.TypeCall):
-            res = "ConValue" # typecall is only used at constructors at the moment
+            res = "ConstructorValue" # typecall is only used at constructors at the moment
         elif isinstance(node, relay.TypeVar):
             res = "TensorValue"
         else:

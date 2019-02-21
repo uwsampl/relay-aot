@@ -200,7 +200,7 @@ class AoTCompiler(ExprFunctor):
         fuse_check(fused_e, self.mod)
         fused_e = relay.ir_pass.infer_type(fused_e, self.mod)
         fuse_check(fused_e, self.mod)
-        anf_fused = relay.ir_pass.to_a_normal_form(fused_e, self.mod)
+        anf_fused = relay.ir_pass.to_anf(fused_e, self.mod)
         fuse_check(anf_fused, self.mod)
         anf_fused = relay.ir_pass.infer_type(anf_fused, self.mod)
         fuse_check(anf_fused, self.mod)
@@ -276,7 +276,7 @@ class AoTCompiler(ExprFunctor):
 
     def visit_match(self, m):
         return CPPMatch(self.visit(m.data),
-                        [(c.lhs, self.visit(c.rhs)) for c in m.pattern],
+                        [(c.lhs, self.visit(c.rhs)) for c in m.clause],
                         m.checked_type)
 
     def visit_op(self, op):
