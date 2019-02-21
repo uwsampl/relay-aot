@@ -4,9 +4,9 @@ import os
 import subprocess
 import tempfile
 import tvm
-import time
 from tvm import relay, get_global_func, target, register_func
 from tvm.relay.expr import Expr, Let
+from tvm.relay.adt import Constructor
 from tvm.relay.expr_functor import ExprFunctor
 from tvm.relay.backend import compile_engine
 from .little_cpp import PackedCall, CPPFunction, Invoke, Decl, CPPIf, CPPTuple, CPPMatch, CPPConstructor, CPPTupleGetItem
@@ -78,36 +78,69 @@ def load_lib(name):
 def is_primitive(func: relay.Function):
     return isinstance(func, relay.Function) and func.attrs and func.attrs.Primitive.value == 1
 
+class ExprVisitor(ExprFunctor):
+    def visit_tuple(self, t):
+        for x in t.fields:
+            self.visit(x)
+
+    def visit_call(self, c):
+        self.visit(c.op)
+        for a in c.args:
+            self.visit(a)
+
+    def visit_var(self, v):
+        pass
+
+    def visit_let(self, l):
+        self.visit(l.var)
+        self.visit(l.value)
+        self.visit(l.body)
+
+    def visit_function(self, f):
+        self.visit(f.body)
+
+    def visit_if(self, i):
+        self.visit(i.cond)
+        self.visit(i.true_branch)
+        self.visit(i.false_branch)
+
+    def visit_global_var(self, gv):
+        pass
+
+    def visit_constructor(self, c):
+        pass
+
+    def visit_op(self, op):
+        pass
+
+    def visit_constant(self, const):
+        pass
+
+    def visit_ref_create(self, r):
+        self.visit(r.value)
+
+    def visit_ref_read(self, r):
+        self.visit(r.ref)
+
+    def visit_ref_write(self, r):
+        self.visit(r.ref)
+        self.visit(r.value)
+
+    def visit_tuple_getitem(self, t):
+        self.visit(t.tuple_value)
+
+    def visit_match(self, m):
+        self.visit(m.data)
+        for c in m.clause:
+            self.visit(c.rhs)
+
 def fuse_check(e, mod):
     vgv = set()
 
-    class ExprVisitor(ExprFunctor):
-        def visit_tuple(self, t):
-            for x in t.fields:
-                self.visit(x)
-
-        def visit_call(self, c):
-            self.visit(c.op)
-            for a in c.args:
-                self.visit(a)
-
-        def visit_var(self, v):
-            pass
-
-        def visit_let(self, l):
-            self.visit(l.var)
-            self.visit(l.value)
-            self.visit(l.body)
-
+    class CheckFused(ExprVisitor):
         def visit_function(self, f):
-            for x in f.args:
-                self.visit(x)
-            self.visit(f.body)
-
-        def visit_if(self, i):
-            self.visit(i.cond)
-            self.visit(i.true_branch)
-            self.visit(i.false_branch)
+            if not is_primitive(f):
+                self.visit(f.body)
 
         def visit_global_var(self, gv):
             if gv not in vgv:
@@ -115,38 +148,39 @@ def fuse_check(e, mod):
                 self.visit(mod[gv])
 
         def visit_op(self, op):
-            pass
-
-        def visit_constant(self, const):
-            pass
-
-        def visit_ref_new(self, r):
-            self.visit(r.value)
-
-        def visit_ref_read(self, r):
-            self.visit(r.ref)
-
-        def visit_ref_write(self, r):
-            self.visit(r.ref)
-            self.visit(r.value)
-
-        def visit_tuple_getitem(self, t):
-            self.visit(t.tuple_value)
-
-        def visit_match(self, m):
-            self.visit(m.data)
-            for c in m.pattern:
-                self.visit(c.rhs)
-
-    class CheckFused(ExprVisitor):
-        def visit_function(self, f):
-            if not is_primitive(f):
-                self.visit(f.body)
-
-        def visit_op(self, op):
             raise Exception('should has no op outside of prim')
 
     CheckFused().visit(e)
+
+class LiveSet(ExprVisitor):
+    def __init__(self, mod):
+        self.live_set = set()
+        self.mod = mod
+        super().__init__()
+
+    def visit_global_var(self, var):
+        if not var in self.live_set:
+            self.live_set.add(var)
+            self.visit(self.mod[var])
+
+def live_from_expr(expr, mod):
+    ls = LiveSet(mod)
+    ls.visit(expr)
+    return ls.live_set
+
+def fuse_ops(expr, mod):
+    """
+    Modules are the only mutable piece of Relay.
+
+
+    We write an optimization pass over the module
+    which destructably updates each function while
+    optimizing.
+    """
+    ls = live_from_expr(expr, mod)
+    for var in ls:
+        mod[var] = relay.ir_pass.fuse_ops(mod[var])
+    return relay.ir_pass.fuse_ops(expr)
 
 class AoTCompiler(ExprFunctor):
     def __init__(self, mod, tgt) -> None:
@@ -162,7 +196,7 @@ class AoTCompiler(ExprFunctor):
 
     def optimize(self, expr: Expr) -> Expr:
         infer_e = relay.ir_pass.infer_type(expr, self.mod)
-        fused_e = relay.ir_pass.fuse_ops(infer_e, self.mod)
+        fused_e = fuse_ops(infer_e, self.mod)
         fuse_check(fused_e, self.mod)
         fused_e = relay.ir_pass.infer_type(fused_e, self.mod)
         fuse_check(fused_e, self.mod)
@@ -192,6 +226,8 @@ class AoTCompiler(ExprFunctor):
     def visit_call(self, call: Expr) -> Expr:
         if is_primitive(call.op):
             return self.mk_primitive_op(call.op, call.args, call.checked_type)
+        elif isinstance(call.op, Constructor):
+            return CPPConstructor(call.op.tag, [self.visit(arg) for arg in call.args])
         else:
             args = [self.visit(arg) for arg in call.args]
             fn = self.visit(call.op)
@@ -249,7 +285,7 @@ class AoTCompiler(ExprFunctor):
     def visit_tuple_getitem(self, t):
         return CPPTupleGetItem(self.visit(t.tuple_value), t.index, t.checked_type)
 
-    def visit_ref_new(self, r):
+    def visit_ref_create(self, r):
         return CPPRefNew(self.visit(r.value), r.checked_type)
 
     def visit_ref_read(self, r):
