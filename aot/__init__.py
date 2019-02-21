@@ -30,6 +30,7 @@ def compile_cpp(source, lib_name, flags=None, lib_path=None):
 
     # with tempfile.TmporaryDirectory() as tmpdir:
     tmpdir = tempfile.mkdtemp(prefix="relay_aot_compiler")
+    lib_path = os.path.join(tmpdir, lib_name)
     source_path = os.path.join(tmpdir, 'source.cc')
     with open(source_path, 'w') as source_file:
         source_file.write(source)
@@ -43,7 +44,7 @@ def compile_cpp(source, lib_name, flags=None, lib_path=None):
             "-undefined",
             "dynamic_lookup",
             "-o",
-            lib_name,
+            lib_path,
             source_path,
 		    f"-I{TVM_PATH}/3rdparty/dmlc-core/include",
 		    f"-I{TVM_PATH}/3rdparty/dlpack/include",
@@ -59,7 +60,7 @@ def compile_cpp(source, lib_name, flags=None, lib_path=None):
             "-shared",
             "-fPIC",
             "-o",
-            lib_name,
+            lib_path,
             source_path,
 		    f"-I{TVM_PATH}/3rdparty/dmlc-core/include",
 		    f"-I{TVM_PATH}/3rdparty/dlpack/include",
@@ -71,6 +72,7 @@ def compile_cpp(source, lib_name, flags=None, lib_path=None):
 
     proc = subprocess.run(command)
     assert proc.returncode == 0
+    return lib_path
 
 def load_lib(name):
     return ctypes.CDLL(name, ctypes.RTLD_GLOBAL)
@@ -305,9 +307,9 @@ def compile(mod, func, *, ctx, tgt, use_gpu, name='default'):
     func = compiler.visit(func)
     params, source_code = to_source.to_source(mod, compiler.gv_map, use_gpu, packed_name, func)
     lib_name = f"librelay_aot_{_LIB_COUNTER}.so"
-    compile_cpp(source_code, lib_name, flags=["-O3"])
+    library_path = compile_cpp(source_code, lib_name, flags=["-O3"])
     _LIB_COUNTER += 1
-    _LIB.append(load_lib(os.path.join(os.getcwd(), lib_name)))
+    _LIB.append(load_lib(library_path))
     fn = get_global_func(packed_name)
     def wrap(*args):
         return fn(*[convert(a, ctx) for a in params], *[convert(a, ctx) for a in args])

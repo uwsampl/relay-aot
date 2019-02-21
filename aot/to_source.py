@@ -298,7 +298,7 @@ class ToSource:
             assert len(call.args) == 1
             va = self.visit(call.args[0])
             decl_str += va.stmt
-            tuple_name = self.fresh_local_name();
+            tuple_name = self.fresh_local_name()
             decl_str += f"TupleValue {tuple_name} = {va.expr};\n"
             end = call.arity - 2
             for i in range(end + 1):
