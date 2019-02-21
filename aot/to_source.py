@@ -73,8 +73,8 @@ class ToSource:
             res = self.visit_match(node)
         elif isinstance(node, little_cpp.CPPTupleGetItem):
             res = self.visit_tuple_getitem(node)
-        elif isinstance(node, little_cpp.CPPRefNew):
-            res = self.visit_ref_new(node)
+        elif isinstance(node, little_cpp.CPPRefCreate):
+            res = self.visit_ref_create(node)
         elif isinstance(node, little_cpp.CPPRefRead):
             res = self.visit_ref_read(node)
         elif isinstance(node, little_cpp.CPPRefWrite):
@@ -84,7 +84,7 @@ class ToSource:
         assert isinstance(res, ExprWithStmt)
         return res
 
-    def visit_ref_new(self, node):
+    def visit_ref_create(self, node):
         vv = self.visit(node.value)
         return ExprWithStmt(f"RefValueNode::make({vv.expr})", vv.stmt)
 

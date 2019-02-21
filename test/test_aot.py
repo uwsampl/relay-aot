@@ -184,4 +184,4 @@ if __name__ == "__main__":
     #test_nat_3()
     test_nat_add()
     #test_add_convert()
-    #test_ref()
+    test_ref()

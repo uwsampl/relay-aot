@@ -10,7 +10,7 @@ from tvm.relay.adt import Constructor
 from tvm.relay.expr_functor import ExprFunctor
 from tvm.relay.backend import compile_engine
 from .little_cpp import PackedCall, CPPFunction, Invoke, Decl, CPPIf, CPPTuple, CPPMatch, CPPConstructor, CPPTupleGetItem
-from .little_cpp import CPPRefNew, CPPRefRead, CPPRefWrite
+from .little_cpp import CPPRefCreate, CPPRefRead, CPPRefWrite
 from . import to_source
 from .convert import convert
 
@@ -286,7 +286,7 @@ class AoTCompiler(ExprFunctor):
         return CPPTupleGetItem(self.visit(t.tuple_value), t.index, t.checked_type)
 
     def visit_ref_create(self, r):
-        return CPPRefNew(self.visit(r.value), r.checked_type)
+        return CPPRefCreate(self.visit(r.value), r.checked_type)
 
     def visit_ref_read(self, r):
         return CPPRefRead(self.visit(r.ref), r.checked_type)

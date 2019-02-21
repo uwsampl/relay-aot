@@ -60,7 +60,7 @@ class CPPTupleGetItem(LittleCppNode):
     relay_type: Any
 
 @attr.s(auto_attribs=True)
-class CPPRefNew(LittleCppNode):
+class CPPRefCreate(LittleCppNode):
     value: Any
     relay_type: Any
 
