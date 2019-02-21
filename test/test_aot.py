@@ -106,10 +106,10 @@ def test_recur_sum_global():
     np.testing.assert_allclose(output.asnumpy(), np.array(55, dtype='int32'))
 
 def nat_to_int(n):
-    if n.con.tag == 1:
+    if n.constructor.tag == 1:
         return 1 + nat_to_int(n.fields[0])
     else:
-        assert n.con.tag == 0
+        assert n.constructor.tag == 0
         return 0
 
 def int_to_nat(p, i):
@@ -182,6 +182,6 @@ if __name__ == "__main__":
     #test_abs()
     #test_recur_sum_global()
     #test_nat_3()
-    #test_nat_add()
+    test_nat_add()
     #test_add_convert()
     test_ref()
