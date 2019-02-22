@@ -135,6 +135,7 @@ class ToSource:
         # match data_name to pat, and fill the var accordingly.
         # go to fail_label or ok_label base on failure/success.
         def visit_pattern(pat, data_name, fail_label, ok_label):
+            data_name = f"Downcast<ConstructorValue>({data_name})"
             if isinstance(pat, relay.PatternConstructor):
                 ok_case = ""
                 bind_names = []
@@ -165,7 +166,7 @@ class ToSource:
 
         in_name = self.fresh_local_name()
         out_name = self.fresh_local_name()
-        stmt_str += f"ConstructorValue {in_name} = {vd.expr};\n"
+        stmt_str += f"Value {in_name} = {vd.expr};\n"
         stmt_str += f"Value {out_name};\n"
         match_finish_label = self.fresh_label_name()
         for c in node.clause:
@@ -202,7 +203,7 @@ class ToSource:
         vt = self.visit(node.true_branch)
         vf = self.visit(node.false_branch)
         ret_name = self.fresh_local_name()
-        stmt = f"{Value} {ret_name};"
+        stmt = f"Value {ret_name};"
         stmt += f"""
         {vc.stmt}
         if (NDToBool({vc.expr}->data)) {{
