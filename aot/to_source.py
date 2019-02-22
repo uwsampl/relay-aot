@@ -437,6 +437,10 @@ def mk_file(body, use_gpu):
       return FunctionValue(n);
     }}
 
+    Value Apply(const Value& op, const std::vector<Value>& args) {{
+      return Downcast<FunctionValue>(op)->f(args);
+    }}
+
     {body}
     """
 
