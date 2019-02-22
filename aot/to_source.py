@@ -206,7 +206,7 @@ class ToSource:
         stmt = f"Value {ret_name};"
         stmt += f"""
         {vc.stmt}
-        if (NDToBool({vc.expr}->data)) {{
+        if (NDToBool(ValueToND({vc.expr}))) {{
           {vt.stmt}
           {ret_name} = {vt.expr};
         }} else {{
@@ -227,10 +227,10 @@ class ToSource:
     def visit_global_var(self, gv):
         if gv not in self.declare_map:
             name = self.fresh_global_name()
-            self.declare_map[gv] = name
+            self.declare_map[gv] = f"{name}()"
             vgv = self.visit(self.gv_map[gv], local=False, name=name)
             assert vgv.stmt == ""
-            assert vgv.expr == name
+            assert vgv.expr == f"{name}()"
         return ExprWithStmt(self.declare_map[gv])
 
     def visit_args(self, args):
@@ -248,7 +248,7 @@ class ToSource:
     def visit_invoke(self, invoke):
         args_str, stmt_str = self.visit_args(invoke.args)
         func = self.visit(invoke.call)
-        return ExprWithStmt(f"{func.expr}({args_str})", stmt_str + func.stmt)
+        return ExprWithStmt(f"Apply({func.expr}, std::vector<Value>({{{args_str}}}))", stmt_str + func.stmt)
 
     def visit_decl(self, decl):
         source = ""
@@ -308,33 +308,34 @@ class ToSource:
         """)
 
     def visit_cpp_function(self, func, local, name):
-        param_str = ""
+        vec = self.fresh_local_name()
+        body = ""
 
         end = len(func.params) - 1
         for i, param in enumerate(func.params):
             pname = self.fresh_local_name()
             self.name_map[param] = pname
-            param_str += f"const Value& {pname}"
-            if i != end:
-                param_str += ", "
+            body += f"Value {pname} = {vec}.at({i});\n"
 
         vb = self.visit(func.body)
-        body = vb.stmt + f"""return {vb.expr};"""
+        body = body + vb.stmt + f"""return {vb.expr};"""
+        expr = f"""FunctionValueNode::make([=](const std::vector<Value>& {vec}) {{
+                {body}
+            }});
+            """
 
         if local:
-            return ExprWithStmt(f"""[=]({param_str}) {{
-                {body}
-            }}
-            """)
+            return ExprWithStmt(expr)
         else:
             if name is None:
                 name = self.fresh_global_name()
             self.declare += f"""
-            Value {name}({param_str}) {{
-                {body}
+            Value {name}() {{
+              static Value ret = {expr};
+              return ret;
             }}
             """
-            return ExprWithStmt(name)
+            return ExprWithStmt(f"{name}()")
 
     def mk_register_api(self, name: str, func) -> str:
         vf = self.visit(func, False)
@@ -357,7 +358,7 @@ class ToSource:
         TVM_REGISTER_API("{name}")
         .set_body([](TVMArgs args, TVMRetValue* ret) {{
             {init}
-            *ret = {vf.expr}({args});
+            *ret = Apply({vf.expr}, std::vector<Value>({{{args}}}));
         }});
         """
         # print(source)
