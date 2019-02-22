@@ -90,8 +90,7 @@ class ToSource:
 
     def visit_ref_read(self, node):
         vr = self.visit(node.ref)
-        e = f"{vr.expr}->value"
-        return ExprWithStmt(f"{self.downcast(e, self.visit_type(node.relay_type))}", vr.stmt)
+        return ExprWithStmt(f"{vr.expr}->value", vr.stmt)
 
     def visit_ref_write(self, node):
         vr = self.visit(node.ref)
@@ -101,8 +100,7 @@ class ToSource:
 
     def visit_tuple_getitem(self, node):
         vt = self.visit(node.tuple_value)
-        e = f"{vt.expr}->fields[{node.index}]"
-        return ExprWithStmt(f"{self.downcast(e, self.visit_type(node.relay_type))}", vt.stmt)
+        return ExprWithStmt(f"{vt.expr}->fields[{node.index}]", vt.stmt)
 
     def visit_constructor(self, node):
         args_str, stmt_str = self.visit_args(node.fields)
@@ -132,7 +130,7 @@ class ToSource:
         for v in pattern_var_set:
             bind_name = self.fresh_local_name()
             self.name_map[v] = bind_name
-            stmt_str += f"{self.visit_type(v.checked_type)} {bind_name};\n"
+            stmt_str += f"Value {bind_name};\n"
 
         # match data_name to pat, and fill the var accordingly.
         # go to fail_label or ok_label base on failure/success.
@@ -144,9 +142,7 @@ class ToSource:
                 for i, input_type in enumerate(pat.constructor.inputs):
                     bind_name = self.fresh_local_name()
                     bind_names.append(bind_name)
-                    t = self.visit_type(input_type)
-                    e = f"{data_name}->fields[{i}]"
-                    ok_case += f"{t} {bind_name} = {self.downcast(e, t)};\n"
+                    ok_case += f"Value {bind_name} = {data_name}->fields[{i}];\n"
                 for bind_name, p in zip(bind_names, pat.patterns):
                     next_label = self.fresh_label_name()
                     ok_case += visit_pattern(p, bind_name, fail_label, next_label)
@@ -170,7 +166,7 @@ class ToSource:
         in_name = self.fresh_local_name()
         out_name = self.fresh_local_name()
         stmt_str += f"ConstructorValue {in_name} = {vd.expr};\n"
-        stmt_str += f"{self.visit_type(node.relay_type)} {out_name};\n"
+        stmt_str += f"Value {out_name};\n"
         match_finish_label = self.fresh_label_name()
         for c in node.clause:
             vc = self.visit(c[1])
@@ -206,7 +202,7 @@ class ToSource:
         vt = self.visit(node.true_branch)
         vf = self.visit(node.false_branch)
         ret_name = self.fresh_local_name()
-        stmt = f"{self.visit_type(node.relay_type)} {ret_name};"
+        stmt = f"{Value} {ret_name};"
         stmt += f"""
         {vc.stmt}
         if (NDToBool({vc.expr}->data)) {{
@@ -218,19 +214,6 @@ class ToSource:
         }}
         """
         return ExprWithStmt(ret_name, stmt)
-
-    def visit_type(self, node):
-        if isinstance(node, relay.TensorType):
-            res = "TensorValue"
-        elif isinstance(node, relay.TupleType):
-            res = "TupleValue"
-        elif isinstance(node, relay.TypeCall):
-            res = "ConstructorValue" # typecall is only used at constructors at the moment
-        elif isinstance(node, relay.TypeVar):
-            res = "TensorValue"
-        else:
-            raise Exception(str(node))
-        return res
 
     def visit_constant(self, const):
         if const not in self.declare_map:
@@ -310,7 +293,7 @@ class ToSource:
             for i, arg in enumerate(call.args):
                 va = self.visit(arg)
                 decl_str += va.stmt
-                args_str += f"{va.expr}->data"
+                args_str += f"ValueToND({va.expr})"
                 if i != end:
                     args_str += ", "
 
@@ -330,7 +313,7 @@ class ToSource:
         for i, param in enumerate(func.params):
             pname = self.fresh_local_name()
             self.name_map[param] = pname
-            param_str += f"const {self.visit_type(param.type_annotation)}& {pname}"
+            param_str += f"const Value& {pname}"
             if i != end:
                 param_str += ", "
 
@@ -346,7 +329,7 @@ class ToSource:
             if name is None:
                 name = self.fresh_global_name()
             self.declare += f"""
-            {self.visit_type(func.ret_type)} {name}({param_str}) {{
+            Value {name}({param_str}) {{
                 {body}
             }}
             """
@@ -404,6 +387,7 @@ def mk_file(body, use_gpu):
     static DLDataType dtype_u1 = DLDataType {{ .code = DLDataTypeCode::kDLUInt, .bits = 1, .lanes = 1 }};
     static DLDataType dtype_i32 = DLDataType {{ .code = DLDataTypeCode::kDLInt, .bits = 32, .lanes = 1 }};
     static DLContext context = DLContext {{ .device_type = {device_type}, .device_id = 0 }};
+
     bool NDToBool(const NDArray& nd) {{
       DLContext cpu_ctx;
       cpu_ctx.device_type = kDLCPU;
@@ -412,11 +396,13 @@ def mk_file(body, use_gpu):
       CHECK_EQ(TVMType2Type(cpu_array->dtype), Bool());
       return reinterpret_cast<uint8_t*>(cpu_array->data)[0];
     }}
+
     NDArray ValueToND(const Value& v) {{
       const TensorValueNode* tv = v.as<TensorValueNode>();
       CHECK(tv);
       return tv->data;
     }}
+
     ConstructorValue TagToCV(size_t tag, const tvm::Array<Value>& fields) {{
       NodePtr<ConstructorValueNode> n = make_node<ConstructorValueNode>();
       NodePtr<ConstructorNode> con = make_node<ConstructorNode>();
@@ -425,6 +411,7 @@ def mk_file(body, use_gpu):
       n->fields = fields;
       return ConstructorValue(n);
     }}
+
     {body}
     """
 
