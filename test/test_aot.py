@@ -1,5 +1,5 @@
 from tvm import relay
-from tvm.relay import var, Function, op, Module, GlobalVar
+from tvm.relay import var, Function, op, Module, GlobalVar, TypeVar, FuncType
 from tvm.relay.prelude import Prelude
 import numpy as np
 import tvm
@@ -164,8 +164,30 @@ def test_tuple():
                              relay.TupleGetItem(relay.Tuple([relay.const(3, dtype='int32'),
                                                              relay.const(4.0, dtype='float32')]),
                                                 1)))
+    np.testing.assert_allclose(cfunc().asnumpy(), np.array(4.0, dtype='float32'))
 
-    #def test_recur_sum_local():
+def test_compose():
+    mod = Module()
+    p = Prelude(mod)
+    a = TypeVar("a")
+    b = TypeVar("b")
+    c = TypeVar("c")
+    f = relay.Var('f', FuncType([b], c))
+    g = relay.Var('g', FuncType([a], b))
+    x = relay.Var('x')
+    compose = GlobalVar('compose')
+    mod[compose] = Function([f, g], Function([x], f(g(x))), FuncType([a], c), [a, b, c])
+    x = relay.Var('x')
+    inc = GlobalVar('inc')
+    mod[inc] = Function([x], p.s(x))
+    x = relay.Var('x')
+    func = GlobalVar('func')
+    f = Function([x], relay.Call(compose(inc, p.double), [x]))
+    mod[func] = f
+    cfunc = compile(mod, func)
+    assert nat_to_int(cfunc(p.s(p.s(p.z())))) == 5
+
+#def test_recur_sum_local():
 #    mod = Module()
 #    x = var('x', dtype='int32', shape=())
 #    t = relay.TensorType(dtype='int32', shape=())
@@ -193,4 +215,5 @@ if __name__ == "__main__":
     #test_nat_add()
     #test_add_convert()
     #test_ref()
-    test_tuple()
+    #test_tuple()
+    test_compose()

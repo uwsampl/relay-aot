@@ -237,7 +237,6 @@ class ToSource:
         args_str = ""
         stmt_str = ""
         for i, arg in enumerate(args):
-            assert isinstance(arg, relay.Var)
             va = self.visit(arg)
             args_str += va.expr
             stmt_str += va.stmt
