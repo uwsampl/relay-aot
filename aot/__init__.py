@@ -231,6 +231,7 @@ class AoTCompiler(ExprFunctor):
         elif isinstance(call.op, Constructor):
             return CPPConstructor(call.op.tag, [self.visit(arg) for arg in call.args])
         else:
+            assert(call.attrs == None)
             args = [self.visit(arg) for arg in call.args]
             fn = self.visit(call.op)
             return Invoke(fn, args)

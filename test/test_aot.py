@@ -182,6 +182,6 @@ if __name__ == "__main__":
     #test_abs()
     #test_recur_sum_global()
     #test_nat_3()
-    test_nat_add()
+    #test_nat_add()
     #test_add_convert()
     test_ref()
