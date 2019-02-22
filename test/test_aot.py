@@ -159,8 +159,13 @@ def test_ref():
 
 def test_tuple():
     mod = Module()
-    cfunc = compile(mod, relay.TupleGetItem(relay.Tuple([relay.const(3, dtype='int32'), relay.const(4.0, dtype='float32')])))
-#def test_recur_sum_local():
+    cfunc = compile(mod,
+                    Function([],
+                             relay.TupleGetItem(relay.Tuple([relay.const(3, dtype='int32'),
+                                                             relay.const(4.0, dtype='float32')]),
+                                                1)))
+
+    #def test_recur_sum_local():
 #    mod = Module()
 #    x = var('x', dtype='int32', shape=())
 #    t = relay.TensorType(dtype='int32', shape=())

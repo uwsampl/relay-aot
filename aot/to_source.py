@@ -100,7 +100,7 @@ class ToSource:
 
     def visit_tuple_getitem(self, node):
         vt = self.visit(node.tuple_value)
-        return ExprWithStmt(f"{vt.expr}->fields[{node.index}]", vt.stmt)
+        return ExprWithStmt(f"Downcast<TupleValue>({vt.expr})->fields[{node.index}]", vt.stmt)
 
     def visit_constructor(self, node):
         args_str, stmt_str = self.visit_args(node.fields)
@@ -220,7 +220,7 @@ class ToSource:
         if const not in self.declare_map:
             name = self.fresh_global_name()
             self.declare_map[const] = name
-            self.declare += f"TensorValue {name};\n"
+            self.declare += f"Value {name};\n"
             self.input_const.append((name, const.data.asnumpy()))
         return ExprWithStmt(self.declare_map[const])
 
@@ -257,7 +257,7 @@ class ToSource:
             self.name_map[var] = local_name
             vv = self.visit(value)
             source += vv.stmt
-            source += f"auto {local_name} = {vv.expr};\n"
+            source += f"Value {local_name} = {vv.expr};\n"
         vb = self.visit(decl.body)
         source += vb.stmt
         return ExprWithStmt(vb.expr, source)
