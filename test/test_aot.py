@@ -157,6 +157,9 @@ def test_ref():
     output = cfunc()
     np.testing.assert_allclose(output.asnumpy(), np.array(3, dtype='int32'))
 
+def test_tuple():
+    mod = Module()
+    cfunc = compile(mod, relay.TupleGetItem(relay.Tuple([relay.const(3, dtype='int32'), relay.const(4.0, dtype='float32')])))
 #def test_recur_sum_local():
 #    mod = Module()
 #    x = var('x', dtype='int32', shape=())
@@ -178,10 +181,11 @@ if __name__ == "__main__":
     #test_double()
     #test_42()
     #test_add_42()
-    test_int_mult_3()
+    #test_int_mult_3()
     #test_abs()
     #test_recur_sum_global()
     #test_nat_3()
     #test_nat_add()
     #test_add_convert()
     #test_ref()
+    test_tuple()
