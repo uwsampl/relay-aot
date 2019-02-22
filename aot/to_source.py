@@ -413,6 +413,30 @@ def mk_file(body, use_gpu):
       return ConstructorValue(n);
     }}
 
+    /*! \\brief A Function value. */
+    class FunctionValue;
+
+    struct FunctionValueNode : ValueNode {{
+      std::function<Value(const std::vector<Value>&)> f;
+
+      FunctionValueNode() {{ }}
+
+      void VisitAttrs(tvm::AttrVisitor* v) final {{ }}
+
+      TVM_DLL static FunctionValue make(const std::function<Value(const std::vector<Value>&)>& f);
+
+      static constexpr const char* _type_key = "relay.FunctionValue";
+      TVM_DECLARE_NODE_TYPE_INFO(FunctionValueNode, ValueNode);
+    }};
+
+    RELAY_DEFINE_NODE_REF(FunctionValue, FunctionValueNode, Value);
+
+    FunctionValue FunctionValueNode::make(const std::function<Value(const std::vector<Value>&)>& f) {{
+      NodePtr<FunctionValueNode> n = make_node<FunctionValueNode>();
+      n->f = f;
+      return FunctionValue(n);
+    }}
+
     {body}
     """
 
