@@ -202,7 +202,7 @@ class AoTCompiler(ExprFunctor):
         fuse_check(fused_e, self.mod)
         fused_e = relay.ir_pass.infer_type(fused_e, self.mod)
         fuse_check(fused_e, self.mod)
-        anf_fused = relay.ir_pass.to_anf(fused_e, self.mod)
+        anf_fused = relay.ir_pass.to_a_normal_form(fused_e, self.mod)
         fuse_check(anf_fused, self.mod)
         anf_fused = relay.ir_pass.infer_type(anf_fused, self.mod)
         fuse_check(anf_fused, self.mod)

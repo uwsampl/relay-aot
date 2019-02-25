@@ -169,20 +169,12 @@ def test_tuple():
 def test_compose():
     mod = Module()
     p = Prelude(mod)
-    a = TypeVar("a")
-    b = TypeVar("b")
-    c = TypeVar("c")
-    f = relay.Var('f', FuncType([b], c))
-    g = relay.Var('g', FuncType([a], b))
-    x = relay.Var('x')
-    compose = GlobalVar('compose')
-    mod[compose] = Function([f, g], Function([x], f(g(x))), FuncType([a], c), [a, b, c])
     x = relay.Var('x')
     inc = GlobalVar('inc')
     mod[inc] = Function([x], p.s(x))
     x = relay.Var('x')
     func = GlobalVar('func')
-    f = Function([x], relay.Call(compose(inc, p.double), [x]))
+    f = Function([x], relay.Call(p.compose(inc, p.double), [x]))
     mod[func] = f
     cfunc = compile(mod, func)
     assert nat_to_int(cfunc(p.s(p.s(p.z())))) == 5
