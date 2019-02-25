@@ -100,7 +100,7 @@ class ToSource:
 
     def visit_tuple_getitem(self, node):
         vt = self.visit(node.tuple_value)
-        return ExprWithStmt(f"{vt.expr}->fields[{node.index}]", vt.stmt)
+        return ExprWithStmt(f"Downcast<TupleValue>({vt.expr})->fields[{node.index}]", vt.stmt)
 
     def visit_constructor(self, node):
         args_str, stmt_str = self.visit_args(node.fields)
@@ -206,7 +206,7 @@ class ToSource:
         stmt = f"Value {ret_name};"
         stmt += f"""
         {vc.stmt}
-        if (NDToBool({vc.expr}->data)) {{
+        if (NDToBool(ValueToND({vc.expr}))) {{
           {vt.stmt}
           {ret_name} = {vt.expr};
         }} else {{
@@ -220,24 +220,23 @@ class ToSource:
         if const not in self.declare_map:
             name = self.fresh_global_name()
             self.declare_map[const] = name
-            self.declare += f"TensorValue {name};\n"
+            self.declare += f"Value {name};\n"
             self.input_const.append((name, const.data.asnumpy()))
         return ExprWithStmt(self.declare_map[const])
 
     def visit_global_var(self, gv):
         if gv not in self.declare_map:
             name = self.fresh_global_name()
-            self.declare_map[gv] = name
+            self.declare_map[gv] = f"{name}()"
             vgv = self.visit(self.gv_map[gv], local=False, name=name)
             assert vgv.stmt == ""
-            assert vgv.expr == name
+            assert vgv.expr == f"{name}()"
         return ExprWithStmt(self.declare_map[gv])
 
     def visit_args(self, args):
         args_str = ""
         stmt_str = ""
         for i, arg in enumerate(args):
-            assert isinstance(arg, relay.Var)
             va = self.visit(arg)
             args_str += va.expr
             stmt_str += va.stmt
@@ -248,7 +247,7 @@ class ToSource:
     def visit_invoke(self, invoke):
         args_str, stmt_str = self.visit_args(invoke.args)
         func = self.visit(invoke.call)
-        return ExprWithStmt(f"{func.expr}({args_str})", stmt_str + func.stmt)
+        return ExprWithStmt(f"Apply({func.expr}, std::vector<Value>({{{args_str}}}))", stmt_str + func.stmt)
 
     def visit_decl(self, decl):
         source = ""
@@ -257,7 +256,7 @@ class ToSource:
             self.name_map[var] = local_name
             vv = self.visit(value)
             source += vv.stmt
-            source += f"auto {local_name} = {vv.expr};\n"
+            source += f"Value {local_name} = {vv.expr};\n"
         vb = self.visit(decl.body)
         source += vb.stmt
         return ExprWithStmt(vb.expr, source)
@@ -308,33 +307,34 @@ class ToSource:
         """)
 
     def visit_cpp_function(self, func, local, name):
-        param_str = ""
+        vec = self.fresh_local_name()
+        body = ""
 
         end = len(func.params) - 1
         for i, param in enumerate(func.params):
             pname = self.fresh_local_name()
             self.name_map[param] = pname
-            param_str += f"const Value& {pname}"
-            if i != end:
-                param_str += ", "
+            body += f"Value {pname} = {vec}.at({i});\n"
 
         vb = self.visit(func.body)
-        body = vb.stmt + f"""return {vb.expr};"""
+        body = body + vb.stmt + f"""return {vb.expr};"""
+        expr = f"""FunctionValueNode::make([=](const std::vector<Value>& {vec}) {{
+                {body}
+            }});
+            """
 
         if local:
-            return ExprWithStmt(f"""[=]({param_str}) {{
-                {body}
-            }}
-            """)
+            return ExprWithStmt(expr)
         else:
             if name is None:
                 name = self.fresh_global_name()
             self.declare += f"""
-            Value {name}({param_str}) {{
-                {body}
+            Value {name}() {{
+              static Value ret = {expr};
+              return ret;
             }}
             """
-            return ExprWithStmt(name)
+            return ExprWithStmt(f"{name}()")
 
     def mk_register_api(self, name: str, func) -> str:
         vf = self.visit(func, False)
@@ -357,7 +357,7 @@ class ToSource:
         TVM_REGISTER_API("{name}")
         .set_body([](TVMArgs args, TVMRetValue* ret) {{
             {init}
-            *ret = {vf.expr}({args});
+            *ret = Apply({vf.expr}, std::vector<Value>({{{args}}}));
         }});
         """
         # print(source)
@@ -411,6 +411,34 @@ def mk_file(body, use_gpu):
       n->constructor = Constructor(con);
       n->fields = fields;
       return ConstructorValue(n);
+    }}
+
+    /*! \\brief A Function value. */
+    class FunctionValue;
+
+    struct FunctionValueNode : ValueNode {{
+      std::function<Value(const std::vector<Value>&)> f;
+
+      FunctionValueNode() {{ }}
+
+      void VisitAttrs(tvm::AttrVisitor* v) final {{ }}
+
+      TVM_DLL static FunctionValue make(const std::function<Value(const std::vector<Value>&)>& f);
+
+      static constexpr const char* _type_key = "relay.FunctionValue";
+      TVM_DECLARE_NODE_TYPE_INFO(FunctionValueNode, ValueNode);
+    }};
+
+    RELAY_DEFINE_NODE_REF(FunctionValue, FunctionValueNode, Value);
+
+    FunctionValue FunctionValueNode::make(const std::function<Value(const std::vector<Value>&)>& f) {{
+      NodePtr<FunctionValueNode> n = make_node<FunctionValueNode>();
+      n->f = f;
+      return FunctionValue(n);
+    }}
+
+    Value Apply(const Value& op, const std::vector<Value>& args) {{
+      return Downcast<FunctionValue>(op)->f(args);
     }}
 
     {body}
