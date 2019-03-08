@@ -14,7 +14,7 @@ from .little_cpp import CPPRefCreate, CPPRefRead, CPPRefWrite
 from . import to_source
 from .convert import convert
 
-TVM_PATH = os.environ['TVM_PATH']
+TVM_PATH = os.environ['TVM_HOME']
 
 def compile_cpp(source, lib_name, flags=None, lib_path=None):
     if flags is None:
