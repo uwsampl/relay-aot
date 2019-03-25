@@ -329,7 +329,7 @@ class ToSource:
             if name is None:
                 name = self.fresh_global_name()
             self.declare += f"""
-            Value {name}() {{
+            static Value {name}() {{
               static Value ret = {expr};
               return ret;
             }}
@@ -357,7 +357,8 @@ class ToSource:
         TVM_REGISTER_API("{name}")
         .set_body([](TVMArgs args, TVMRetValue* ret) {{
             {init}
-            *ret = Apply({vf.expr}, std::vector<Value>({{{args}}}));
+            std::initializer_list<Value> ilist = {{{args}}};
+            *ret = Apply({vf.expr}, std::vector<Value>(ilist));
         }});
         """
         # print(source)
@@ -389,7 +390,7 @@ def mk_file(body, use_gpu):
     static DLDataType dtype_i32 = DLDataType {{ .code = DLDataTypeCode::kDLInt, .bits = 32, .lanes = 1 }};
     static DLContext context = DLContext {{ .device_type = {device_type}, .device_id = 0 }};
 
-    bool NDToBool(const NDArray& nd) {{
+    static bool NDToBool(const NDArray& nd) {{
       DLContext cpu_ctx;
       cpu_ctx.device_type = kDLCPU;
       cpu_ctx.device_id = 0;
@@ -398,13 +399,13 @@ def mk_file(body, use_gpu):
       return reinterpret_cast<uint8_t*>(cpu_array->data)[0];
     }}
 
-    NDArray ValueToND(const Value& v) {{
+    static NDArray ValueToND(const Value& v) {{
       const TensorValueNode* tv = v.as<TensorValueNode>();
       CHECK(tv);
       return tv->data;
     }}
 
-    ConstructorValue TagToCV(size_t tag, const tvm::Array<Value>& fields) {{
+    static ConstructorValue TagToCV(size_t tag, const tvm::Array<Value>& fields) {{
       NodePtr<ConstructorValueNode> n = make_node<ConstructorValueNode>();
       NodePtr<ConstructorNode> con = make_node<ConstructorNode>();
       con->tag = tag;
