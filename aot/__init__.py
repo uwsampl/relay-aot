@@ -17,6 +17,7 @@ from .convert import convert
 TVM_PATH = os.environ['TVM_HOME']
 
 def compile_cpp(source, lib_name, flags=None, lib_path=None):
+    print(f"lib_name={lib_name}, flags={flags}, lib_path={lib_path}")
     if flags is None:
         flags = []
 
@@ -300,18 +301,30 @@ class AoTCompiler(ExprFunctor):
 _LIB_COUNTER = 1
 _LIB = []
 
-def compile(mod, func, *, ctx, tgt, use_gpu, name='default'):
-    global _LIB, _LIB_COUNTER
+def lib_and_func_name(name):
+    global _LIB_COUNTER
     packed_name = f'relay.aot.{name}.{_LIB_COUNTER}'
+    lib_name = f"librelay_aot_{_LIB_COUNTER}.so"
+    _LIB_COUNTER += 1
+    return lib_name, packed_name
+
+def _mk_wrapper(fn, ctx, params):
+    def _wrapper(*args):
+        return fn(*[convert(a, ctx) for a in params], *[convert(a, ctx) for a in args])
+    return _wrapper
+
+def compile(mod, func, ctx, tgt, use_gpu, name='default'):
+    global _LIB
     compiler = AoTCompiler(mod, tgt)
     func = compiler.optimize(func)
     func = compiler.visit(func)
+    lib_name, packed_name = lib_and_func_name(name)
     params, source_code = to_source.to_source(mod, compiler.gv_map, use_gpu, packed_name, func)
+    print(source_code)
     lib_name = f"librelay_aot_{_LIB_COUNTER}.so"
     library_path = compile_cpp(source_code, lib_name, flags=["-O3"])
-    _LIB_COUNTER += 1
     _LIB.append(load_lib(library_path))
+    print(f"Getting packed_name={packed_name}")
     fn = get_global_func(packed_name)
-    def wrap(*args):
-        return fn(*[convert(a, ctx) for a in params], *[convert(a, ctx) for a in args])
-    return wrap
+    print(fn)
+    return _mk_wrapper(fn, ctx, params)
