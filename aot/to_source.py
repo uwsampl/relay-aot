@@ -90,12 +90,12 @@ class ToSource:
 
     def visit_ref_read(self, node):
         vr = self.visit(node.ref)
-        return ExprWithStmt(f"{vr.expr}->value", vr.stmt)
+        return ExprWithStmt(f"Downcast<RefValue>({vr.expr})->value", vr.stmt)
 
     def visit_ref_write(self, node):
         vr = self.visit(node.ref)
         vv = self.visit(node.value)
-        stmt = vr.stmt + vv.stmt + f"{vr.expr}->value={vv.expr};\n"
+        stmt = vr.stmt + vv.stmt + f"Downcast<RefValue>({vr.expr})->value={vv.expr};\n"
         return ExprWithStmt("TupleValueNode::make({})", stmt)
 
     def visit_tuple_getitem(self, node):
