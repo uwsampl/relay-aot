@@ -224,7 +224,7 @@ class AoTCompiler(ExprFunctor):
         if not get_global_func(name, allow_missing=True):
             jit_func = self.engine.jit(cc_key, self.tgt)
             register_func(name, jit_func)
-        return PackedCall(name, num_param + 1, args, output_type, args_is_tuple)
+        return PackedCall(name, num_param + 1, args, [x.checked_type for x in args], output_type)
 
     def visit_call(self, call: Expr) -> Expr:
         if is_primitive(call.op):
