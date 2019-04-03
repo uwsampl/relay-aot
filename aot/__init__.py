@@ -16,6 +16,10 @@ from .convert import convert
 
 TVM_PATH = os.environ['TVM_HOME']
 
+def must_run_process(args):
+    proc = subprocess.run(args)
+    assert proc.returncode == 0
+
 def compile_cpp(source, lib_name, flags=None, lib_path=None):
     # print(f"lib_name={lib_name}, flags={flags}, lib_path={lib_path}")
     if flags is None:
@@ -35,6 +39,8 @@ def compile_cpp(source, lib_name, flags=None, lib_path=None):
     source_path = os.path.join(tmpdir, 'source.cc')
     with open(source_path, 'w') as source_file:
         source_file.write(source)
+
+    must_run_process(["clang-format", "-i", debug_source_path])
 
     system = os.uname()[0]
     if system == 'Darwin':
@@ -71,8 +77,7 @@ def compile_cpp(source, lib_name, flags=None, lib_path=None):
             "-ltvm"
         ] + flags
 
-    proc = subprocess.run(command)
-    assert proc.returncode == 0
+    must_run_process(command)
     return lib_path
 
 def load_lib(name):
