@@ -285,6 +285,7 @@ class ToSource:
             else:
                 assert isinstance(ty, relay.ty.TupleType)
                 tuple_name = self.fresh_local_name()
+                nonlocal decl_str
                 decl_str += f"TupleValue {tuple_name} = Downcast<TupleValue>(arg);\n"
                 for i, t in enumerate(ty.fields):
                     convert_input(t, f"{tuple_name}->fields[{i}]")
@@ -295,6 +296,7 @@ class ToSource:
         def convert_output(ty):
             if isinstance(ty, relay.ty.TensorType):
                 tensor_name = self.fresh_local_name()
+                nonlocal decl_str
                 decl_str += f"TensorValue {tensor_name} = TensorValueNode::make(NDArray::Empty({self.nd_shape(ty)}, {self.nd_dtype(ty)}, context));\n"
                 args_str.append(f"{tensor_name}->data")
                 return tensor_name
