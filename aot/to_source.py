@@ -132,8 +132,8 @@ class ToSource:
         # match data_name to pat, and fill the var accordingly.
         # go to fail_label or ok_label base on failure/success.
         def visit_pattern(pat, data_name, fail_label, ok_label):
-            data_name = f"Downcast<ConstructorValue>({data_name})"
             if isinstance(pat, relay.PatternConstructor):
+                data_name = f"Downcast<ConstructorValue>({data_name})"
                 ok_case = ""
                 bind_names = []
                 assert len(pat.constructor.inputs) == len(pat.patterns)
