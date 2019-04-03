@@ -317,7 +317,7 @@ class ToSource:
 
         end = len(func.params) - 1
         for i, param in enumerate(func.params):
-            pname = self.fresh_local_name()
+            pname = self.fresh_local_name(param)
             self.name_map[param] = pname
             body += f"Value {pname} = {vec}.at({i});\n"
 
