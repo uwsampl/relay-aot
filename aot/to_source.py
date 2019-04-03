@@ -289,11 +289,7 @@ class ToSource:
                 for i, t in enumerate(ty.fields):
                     convert_input(t, f"{tuple_name}->fields[{i}]")
         assert len(call.args_type) == len(call.args)
-        for i in call.args_type:
-            print(call.args_type)
-            print(args)
-            print(call.args_type[i])
-            print(args[i])
+        for i in len(call.args_type):
             convert_input(call.args_type[i], args[i])
 
         def convert_output(ty):
