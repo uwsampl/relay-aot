@@ -310,7 +310,9 @@ def lib_and_func_name(name):
 
 def _mk_wrapper(fn, ctx, params):
     def _wrapper(*args):
-        return fn(*[convert(a, ctx) for a in params], *[convert(a, ctx) for a in args])
+        params = [convert(a, ctx) for a in params]
+        args = [convert(a, ctx) for a in args]
+        return fn(*params, *args)
     return _wrapper
 
 def compile(mod, func, ctx, tgt, use_gpu, name='default'):
