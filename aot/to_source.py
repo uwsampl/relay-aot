@@ -302,7 +302,7 @@ class ToSource:
                 return tensor_name
             else:
                 assert isinstance(ty, relay.ty.TupleType)
-                return f"TupleValueNode::make({{{inter([convert_output(t) for t in ty])}}})"
+                return f"TupleValueNode::make({{{inter([convert_output(t) for t in ty.fields])}}})"
         out = convert_output(call.ret_type)
         return ExprWithStmt(out, f"""
             {decl_str}
