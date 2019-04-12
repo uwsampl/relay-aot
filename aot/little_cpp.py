@@ -13,7 +13,6 @@ class Decl(LittleCppNode):
 @attr.s(auto_attribs=True)
 class PackedCall(LittleCppNode):
     name: str
-    arity: int
     args: Any
     args_type: Any
     ret_type: Any

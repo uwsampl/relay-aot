@@ -34,9 +34,12 @@ class ToSource:
         self.name_counter += 1
         return name
 
+    def sanitize(self, str):
+        return str.replace("-", "_")
+
     def fresh_local_name(self, var=None):
         if var is not None:
-            name = f"local_{var.name_hint}_{self.name_counter}"
+            name = f"local_{self.sanitize(var.name_hint)}_{self.name_counter}"
         else:
             name = f"local_{self.name_counter}"
         self.name_counter += 1
@@ -286,7 +289,7 @@ class ToSource:
                 assert isinstance(ty, relay.ty.TupleType)
                 tuple_name = self.fresh_local_name()
                 nonlocal decl_str
-                decl_str += f"TupleValue {tuple_name} = Downcast<TupleValue>(arg);\n"
+                decl_str += f"TupleValue {tuple_name} = Downcast<TupleValue>({arg});\n"
                 for i, t in enumerate(ty.fields):
                     convert_input(t, f"{tuple_name}->fields[{i}]")
         assert len(call.args_type) == len(call.args)
