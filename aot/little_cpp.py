@@ -13,10 +13,9 @@ class Decl(LittleCppNode):
 @attr.s(auto_attribs=True)
 class PackedCall(LittleCppNode):
     name: str
-    arity: int
     args: Any
-    output_type: Any
-    args_is_tuple: bool
+    args_type: Any
+    ret_type: Any
 
 @attr.s(auto_attribs=True)
 class Invoke(LittleCppNode):

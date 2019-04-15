@@ -16,6 +16,10 @@ from .convert import convert
 
 TVM_PATH = os.environ['TVM_HOME']
 
+def must_run_process(args):
+    proc = subprocess.run(args)
+    assert proc.returncode == 0
+
 def compile_cpp(source, lib_name, flags=None, lib_path=None):
     # print(f"lib_name={lib_name}, flags={flags}, lib_path={lib_path}")
     if flags is None:
@@ -35,6 +39,8 @@ def compile_cpp(source, lib_name, flags=None, lib_path=None):
     source_path = os.path.join(tmpdir, 'source.cc')
     with open(source_path, 'w') as source_file:
         source_file.write(source)
+
+    must_run_process(["clang-format", "-i", debug_source_path])
 
     system = os.uname()[0]
     if system == 'Darwin':
@@ -71,8 +77,7 @@ def compile_cpp(source, lib_name, flags=None, lib_path=None):
             "-ltvm"
         ] + flags
 
-    proc = subprocess.run(command)
-    assert proc.returncode == 0
+    must_run_process(command)
     return lib_path
 
 def load_lib(name):
@@ -180,10 +185,15 @@ def fuse_ops(expr, mod):
     which destructably updates each function while
     optimizing.
     """
+    def fuse_helper(expr, mod):
+        simplified = relay.ir_pass.simplify_inference(expr)
+        type_checked = relay.ir_pass.infer_type(simplified, mod)
+        return relay.ir_pass.fuse_ops(type_checked)
+
     ls = live_from_expr(expr, mod)
     for var in ls:
-        mod[var] = relay.ir_pass.fuse_ops(mod[var])
-    return relay.ir_pass.fuse_ops(expr)
+        mod[var] = fuse_helper(mod[var], mod)
+    return fuse_helper(expr, mod)
 
 class AoTCompiler(ExprFunctor):
     def __init__(self, mod, tgt) -> None:
@@ -210,21 +220,13 @@ class AoTCompiler(ExprFunctor):
         return anf_fused
 
     def mk_primitive_op(self, func: Expr, args, output_type) -> Expr:
-        if len(args) == 1 and isinstance(args[0].checked_type, relay.TupleType):
-            args_is_tuple = True
-            num_param = len(args[0].checked_type.fields)
-        else:
-            for x in args:
-                assert isinstance(x.checked_type, relay.TensorType)
-            args_is_tuple = False
-            num_param = len(func.params)
         cc_key = compile_engine.CCacheKey(func, self.tgt)
         hash = relay.ir_pass.structural_hash(func)
         name = f"op_{hash}"
         if not get_global_func(name, allow_missing=True):
             jit_func = self.engine.jit(cc_key, self.tgt)
             register_func(name, jit_func)
-        return PackedCall(name, num_param + 1, args, output_type, args_is_tuple)
+        return PackedCall(name, args, [x.checked_type for x in args], output_type)
 
     def visit_call(self, call: Expr) -> Expr:
         if is_primitive(call.op):
@@ -310,8 +312,13 @@ def lib_and_func_name(name):
 
 def _mk_wrapper(fn, ctx, params):
     def _wrapper(*args):
-        return fn(*[convert(a, ctx) for a in params], *[convert(a, ctx) for a in args])
+        new_params = [convert(a, ctx) for a in params]
+        new_args = [convert(a, ctx) for a in args]
+        return fn(*new_params, *new_args)
     return _wrapper
+
+import sys
+sys.setrecursionlimit(10000)
 
 def compile(mod, func, ctx, tgt, use_gpu, name='default'):
     global _LIB

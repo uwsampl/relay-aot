@@ -34,9 +34,12 @@ class ToSource:
         self.name_counter += 1
         return name
 
+    def sanitize(self, str):
+        return str.replace("-", "_")
+
     def fresh_local_name(self, var=None):
         if var is not None:
-            name = f"local_{var.name_hint}_{self.name_counter}"
+            name = f"local_{self.sanitize(var.name_hint)}_{self.name_counter}"
         else:
             name = f"local_{self.name_counter}"
         self.name_counter += 1
@@ -116,9 +119,6 @@ class ToSource:
         else:
             raise Exception(str(pat))
 
-    def downcast(self, expr_str, ty_str):
-        return f"Downcast<{ty_str}>({expr_str})"
-
     def visit_match(self, node):
         vd = self.visit(node.data)
         stmt_str = vd.stmt
@@ -135,8 +135,8 @@ class ToSource:
         # match data_name to pat, and fill the var accordingly.
         # go to fail_label or ok_label base on failure/success.
         def visit_pattern(pat, data_name, fail_label, ok_label):
-            data_name = f"Downcast<ConstructorValue>({data_name})"
             if isinstance(pat, relay.PatternConstructor):
+                data_name = f"Downcast<ConstructorValue>({data_name})"
                 ok_case = ""
                 bind_names = []
                 assert len(pat.constructor.inputs) == len(pat.patterns)
@@ -276,34 +276,42 @@ class ToSource:
 
     def visit_packed_call(self, call):
         decl_str = ""
-        args_str = ""
-        if call.args_is_tuple:
-            assert len(call.args) == 1
-            va = self.visit(call.args[0])
+        args = []
+        for arg in call.args:
+            va = self.visit(arg)
             decl_str += va.stmt
-            tuple_name = self.fresh_local_name()
-            decl_str += f"TupleValue {tuple_name} = {va.expr};\n"
-            end = call.arity - 2
-            for i in range(end + 1):
-                args_str += f"ValueToND({tuple_name}->fields[{i}])"
-                if i != end:
-                    args_str += ", "
-        else:
-            end = call.arity - 2
-            for i, arg in enumerate(call.args):
-                va = self.visit(arg)
-                decl_str += va.stmt
-                args_str += f"ValueToND({va.expr})"
-                if i != end:
-                    args_str += ", "
+            args.append(va.expr)
+        args_str = []
+        def convert_input(ty, arg):
+            if isinstance(ty, relay.ty.TensorType):
+                args_str.append(f"ValueToND({arg})")
+            else:
+                assert isinstance(ty, relay.ty.TupleType)
+                tuple_name = self.fresh_local_name()
+                nonlocal decl_str
+                decl_str += f"TupleValue {tuple_name} = Downcast<TupleValue>({arg});\n"
+                for i, t in enumerate(ty.fields):
+                    convert_input(t, f"{tuple_name}->fields[{i}]")
+        assert len(call.args_type) == len(call.args)
+        for i in range(len(call.args_type)):
+            convert_input(call.args_type[i], args[i])
 
-        out_name = self.fresh_local_name()
-        return ExprWithStmt(out_name, f"""
+        def convert_output(ty):
+            if isinstance(ty, relay.ty.TensorType):
+                tensor_name = self.fresh_local_name()
+                nonlocal decl_str
+                decl_str += f"TensorValue {tensor_name} = TensorValueNode::make(NDArray::Empty({self.nd_shape(ty)}, {self.nd_dtype(ty)}, context));\n"
+                args_str.append(f"{tensor_name}->data")
+                return tensor_name
+            else:
+                assert isinstance(ty, relay.ty.TupleType)
+                return f"TupleValueNode::make({{{inter([convert_output(t) for t in ty.fields])}}})"
+        out = convert_output(call.ret_type)
+        return ExprWithStmt(out, f"""
             {decl_str}
             const PackedFunc *pf = runtime::Registry::Get("{call.name}");
             CHECK(pf);
-            TensorValue {out_name} = TensorValueNode::make(NDArray::Empty({self.nd_shape(call.output_type)}, {self.nd_dtype(call.output_type)}, context));
-            (*pf)({args_str}, {out_name}->data);
+            (*pf)({inter(args_str)});
         """)
 
     def visit_cpp_function(self, func, local, name):
@@ -312,7 +320,7 @@ class ToSource:
 
         end = len(func.params) - 1
         for i, param in enumerate(func.params):
-            pname = self.fresh_local_name()
+            pname = self.fresh_local_name(param)
             self.name_map[param] = pname
             body += f"Value {pname} = {vec}.at({i});\n"
 
