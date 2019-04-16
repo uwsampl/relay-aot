@@ -264,7 +264,7 @@ def _mk_wrapper(fn, ctx, params):
 import sys
 sys.setrecursionlimit(10000)
 
-def compile(func, mod, ctx, tgt, use_gpu, name='default'):
+def compile(func, mod, ctx, tgt, name='default'):
     """Compile a relay function into a native library function.
 
     Parameters
