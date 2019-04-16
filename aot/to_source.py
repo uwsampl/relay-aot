@@ -380,8 +380,7 @@ def inter(strs, sep=", "):
             ret += sep
     return ret
 
-def mk_file(body, use_gpu):
-    device_type = "DLDeviceType::kDLGPU" if use_gpu else "DLDeviceType::kDLCPU"
+def mk_file(body, ctx):
     return f"""
     #include <tvm/tvm.h>
     #include <tvm/api_registry.h>
@@ -396,7 +395,7 @@ def mk_file(body, use_gpu):
     static DLDataType dtype_u32 = DLDataType {{ .code = DLDataTypeCode::kDLUInt, .bits = 32, .lanes = 1 }};
     static DLDataType dtype_u1 = DLDataType {{ .code = DLDataTypeCode::kDLUInt, .bits = 1, .lanes = 1 }};
     static DLDataType dtype_i32 = DLDataType {{ .code = DLDataTypeCode::kDLInt, .bits = 32, .lanes = 1 }};
-    static DLContext context = DLContext {{ .device_type = {device_type}, .device_id = 0 }};
+    static DLContext context = DLContext {{ .device_type = DLDeviceType({ctx.device_type}), .device_id = {ctx.device_id} }};
 
     static bool NDToBool(const NDArray& nd) {{
       DLContext cpu_ctx;
@@ -453,7 +452,7 @@ def mk_file(body, use_gpu):
     {body}
     """
 
-def to_source(mod, gv_map, use_gpu, name, program) -> str:
+def to_source(mod, program, gv_map, ctx, name) -> str:
     convert = ToSource(gv_map)
-    ret = mk_file(convert.mk_register_api(name, program), use_gpu)
+    ret = mk_file(convert.mk_register_api(name, program), ctx)
     return [value for name, value in convert.input_const], ret

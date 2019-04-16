@@ -281,9 +281,6 @@ def compile(func, mod, ctx, tgt, use_gpu, name='default'):
     tgt: Target
         The target
 
-    use_gpu: Bool
-        Whether the context is CPU or GPU. # TODO: infer from ctx.
-
     name: String
         The name of the target binary library.
 
@@ -298,7 +295,7 @@ def compile(func, mod, ctx, tgt, use_gpu, name='default'):
     func = compiler.optimize(func)
     func = compiler.visit(func)
     lib_name, packed_name = lib_and_func_name(name)
-    params, source_code = to_source.to_source(mod, compiler.gv_map, use_gpu, packed_name, func)
+    params, source_code = to_source.to_source(mod, func, compiler.gv_map, ctx, packed_name)
     lib_name = f"librelay_aot_{_LIB_COUNTER}.so"
     library_path = compile_cpp(source_code, lib_name, flags=["-O3"])
     _LIB.append(load_lib(library_path))
