@@ -263,7 +263,35 @@ def _mk_wrapper(fn, ctx, params):
         return fn(*new_params, *new_args)
     return _wrapper
 
-def compile(mod, func, ctx, tgt, use_gpu, name='default'):
+def compile(func, mod, ctx, tgt, use_gpu, name='default'):
+    """Compile a relay function into a native library function.
+
+    Parameters
+    ----------
+    func: Expr
+        The function.
+
+    mod: Module
+        The Module.
+
+    ctx: Context
+        The Context.
+
+    tgt: Target
+        The target
+
+    use_gpu: Bool
+        Whether the context is CPU or GPU. # TODO: infer from ctx.
+
+    name: String
+        The name of the target binary library.
+
+    Returns
+    -------
+    result: Function
+        A function that, when pass in some values,
+        will convert them to the right format and call the compiled func.
+    """
     global _LIB
     compiler = AoTCompiler(mod, tgt)
     func = compiler.optimize(func)
