@@ -49,3 +49,9 @@ def double_example():
     a = tvm.nd.array(np.array(1.5, dtype='float32'))
     output = cfunc(a).asnumpy() // array(6.)
 ```
+
+You can test to ensure you setup the ahead of time compiler correctly
+adding it to your `PYTHONPATH`, and running:
+```
+python3 examples/readme_ex.py
+```
