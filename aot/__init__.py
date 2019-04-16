@@ -7,7 +7,7 @@ import tvm
 from tvm import relay, get_global_func, target, register_func
 from tvm.relay.expr import Expr, Let
 from tvm.relay.adt import Constructor
-from tvm.relay.expr_functor import ExprFunctor
+from tvm.relay.expr_functor import ExprFunctor, ExprVisitor
 from tvm.relay.backend import compile_engine
 from .little_cpp import PackedCall, CPPFunction, Invoke, Decl, CPPIf, CPPTuple, CPPMatch, CPPConstructor, CPPTupleGetItem
 from .little_cpp import CPPRefCreate, CPPRefRead, CPPRefWrite
