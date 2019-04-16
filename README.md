@@ -24,7 +24,6 @@ and dynamically linked. We extract the corresponding symbol from the
 dynamic library, and wrap it as a Python closure.
 
 You can see an example below:
-```
 
 ```
 import numpy as np
