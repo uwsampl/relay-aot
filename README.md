@@ -2,17 +2,45 @@
 
 An experimental ahead of time compiler for Relay.
 
-Ahead of time compiler make it possible to execute Relay code without going through an interpreter written in C++ or python,
-which reduce the speed of the program. Additionally, it will produce a single binary that depend only on tvm runtime, so the deployment story is also simplified.
+The ahead of time compiler enables the execution of Relay code without
+requiring a framework's interpreter written in C++ or Python. 
 
-This repository contains an external library which implements ahead of time compilation
-for Relay. The current approach is just a proof of concept which lowers Relay to C++,
-and relies on a C++ compiler such as `gcc` or `clang` to produce an executable. 
+The removal of framework and interpretation overhead combined
+with optimized operators produced by TVM's operators dramatically
+reduces execution time. Additionally, the compiler produces a single binary which only depends on 
+TVM, simplifying the deployment story. This repository contains an external library which 
+implements ahead of time compilation for Relay. The current approach is a proof of 
+concept which lowers Relay to C++, and relies on a C++ compiler such as `gcc` or `clang` 
+to produce an executable. 
 
-The current library exposes a primitive `compile` which takes a `relay.Function`
-and returns a closure which implements the function using native code. The
-compiler lowers this function to a small C++-like IR, and then generates
-a C++ program from this, which is then compiled and dynamically linked.
+The ahead of time compiler comes as a standalone library which exposes a
+primitives `compile` function which compiles `relay.Function`
+returning a Python closure which wraps the compiled native code. 
 
-We extract the corresponding symbol from the dynamic library, and wrap
-it in a Python closure. 
+The compiler's design is straight forward it lowers functions into a 
+small C++-like IR, and generates a C++ program which can be compiled 
+and dynamically linked. We extract the corresponding symbol from the dynamic library, 
+and wrap it as a Python closure. 
+
+You can see an example below:
+```
+
+```
+def double_example():
+    # Declare a Relay module.
+    mod = Module()
+    
+    # Implement the double function.
+    x = var('x', shape=())
+    double = GlobalVar('double')
+    mod[double] = Function([x], x + x)
+    
+    # Generate a function which calls double twice.
+    x = var('x', shape=())
+    f = Function([x], double(double(x)))
+    # Compile the function. 
+    cfunc = compile(f, mod)
+    
+    a = tvm.nd.array(np.array(1.5, dtype='float32'))
+    output = cfunc(a).asnumpy() // array(6.)
+```
