@@ -67,4 +67,4 @@ You can test to ensure you setup the ahead of time correctly by running:
 TVM_HOME=~/Git/tvm python3 examples/readme_ex.py
 ```
 
-~
+~Note: this only sets the TVM_HOME for this command you must reexport in your shell.~
