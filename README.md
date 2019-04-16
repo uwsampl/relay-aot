@@ -25,7 +25,7 @@ dynamic library, and wrap it as a Python closure.
 
 You can see an example below:
 
-```
+```python
 import numpy as np
 import tvm
 from tvm.relay import Module, GlobalVar, Function
@@ -50,8 +50,21 @@ def double_example():
     output = cfunc(a).asnumpy() // array(6.)
 ```
 
-You can test to ensure you setup the ahead of time compiler correctly
-adding it to your `PYTHONPATH`, and running:
+Currently there is no Python package due to the lack of a package for `tvm`
+itself. You can use the ahead of time compiler by adding it to your `PYTHONPATH`.
+
+```shell
+export PYTHONPATH="THE_AOT_PATH:${PYTHONPATH}"
 ```
-python3 examples/readme_ex.py
+
+You must set the variable `TVM_HOME` in order to use the native compiler
+currently.
+
+
+You can test to ensure you setup the ahead of time correctly by running:
+
+```shell
+TVM_HOME=~/Git/tvm python3 examples/readme_ex.py
 ```
+
+~
