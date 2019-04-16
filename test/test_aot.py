@@ -5,16 +5,16 @@ import numpy as np
 import tvm
 import aot
 
-def compile(mod, f):
+def compile(f, mod):
     tgt = tvm.target.create('llvm')
     ctx = tvm.context('llvm', 0)
-    return aot.compile(mod, f, ctx=ctx, tgt=tgt, use_gpu=False)
+    return aot.compile(f, mod, ctx=ctx, tgt=tgt, use_gpu=False)
 
 def test_identity():
     mod = Module()
     x = var('x', shape=())
     func = Function([x], x)
-    cfunc = compile(mod, func)
+    cfunc = compile(func, mod)
     a = tvm.nd.array(np.array(1.0, dtype='float32'))
     output = cfunc(a)
     np.testing.assert_allclose(output.asnumpy(), a.asnumpy())
@@ -25,7 +25,7 @@ def test_add():
     y = var('y', shape=())
     z = x + y
     func = Function([x, y], z)
-    cfunc = compile(mod, func)
+    cfunc = compile(func, mod)
     a = tvm.nd.array(np.array(1.0, dtype='float32'))
     b = tvm.nd.array(np.array(1.0, dtype='float32'))
     c = tvm.nd.array(np.array(2.0, dtype='float32'))
@@ -39,7 +39,7 @@ def test_mult_op():
     z = x + y
     zz = op.exp(z)
     func = Function([x, y], zz)
-    cfunc = compile(mod, func)
+    cfunc = compile(func, mod)
     a = tvm.nd.array(np.array(1.0, dtype='float32'))
     b = tvm.nd.array(np.array(1.0, dtype='float32'))
     output = cfunc(a, b)
@@ -51,7 +51,7 @@ def test_double():
     double = GlobalVar('double')
     mod[double] = Function([x], x + x)
     x = var('x', shape=())
-    cfunc = compile(mod, Function([x], double(double(x))))
+    cfunc = compile(Function([x], double(double(x))), mod)
     a = tvm.nd.array(np.array(1.5, dtype='float32'))
     output = cfunc(a)
     np.testing.assert_allclose(output.asnumpy(), np.array(6.0, dtype='float32'))
@@ -59,7 +59,7 @@ def test_double():
 def test_42():
     mod = Module()
     func = Function([], relay.const(42))
-    cfunc = compile(mod, func)
+    cfunc = compile(func, mod)
     output = cfunc()
     np.testing.assert_allclose(output.asnumpy(), np.array(42.0, dtype='float32'))
 
@@ -67,7 +67,7 @@ def test_add_42():
     mod = Module()
     x = var('x', shape=())
     func = Function([x], x + relay.const(42.0))
-    cfunc = compile(mod, func)
+    cfunc = compile(func, mod)
     a = tvm.nd.array(np.array(42.0, dtype='float32'))
     output = cfunc(a)
     np.testing.assert_allclose(output.asnumpy(), np.array(84.0, dtype='float32'))
@@ -76,7 +76,7 @@ def test_int_mult_3():
     mod = Module()
     x = var('x', dtype='int32', shape=())
     func = Function([x], x * relay.const(3))
-    cfunc = compile(mod, func)
+    cfunc = compile(func, mod)
     a = tvm.nd.array(np.array(4, dtype='int32'))
     output = cfunc(a)
     np.testing.assert_allclose(output.asnumpy(), np.array(12, dtype='int32'))
@@ -85,7 +85,7 @@ def test_abs():
     mod = Module()
     x = var('x', shape=())
     func = Function([x], relay.If(op.less(x, relay.const(0.0)), relay.const(-1.0) * x, x))
-    cfunc = compile(mod, func)
+    cfunc = compile(func, mod)
     a = tvm.nd.array(np.array(12.0, dtype='float32'))
     output = cfunc(a)
     np.testing.assert_allclose(output.asnumpy(), np.array(12.0, dtype='float32'))
@@ -101,7 +101,7 @@ def test_recur_sum_global():
     mod[sum] = Function([x],
                         relay.If(op.less(x, c), c, x + sum(x - relay.const(1))),
                         relay.TensorType(dtype='int32', shape=()))
-    cfunc = compile(mod, Function([], sum(relay.const(10))))
+    cfunc = compile(Function([], sum(relay.const(10))), mod)
     output = cfunc()
     np.testing.assert_allclose(output.asnumpy(), np.array(55, dtype='int32'))
 
@@ -122,21 +122,21 @@ def int_to_nat(p, i):
 def test_nat_3():
     mod = Module()
     p = Prelude(mod)
-    cfunc = compile(mod, Function([], p.s(p.s(p.s(p.z())))))
+    cfunc = compile(Function([], p.s(p.s(p.s(p.z())))), mod)
     output = cfunc()
     assert nat_to_int(output) == 3
 
 def test_nat_add():
     mod = Module()
     p = Prelude(mod)
-    cfunc = compile(mod, Function([], p.add(p.s(p.s(p.s(p.z()))), p.s(p.s(p.s(p.s(p.z())))))))
+    cfunc = compile(Function([], p.add(p.s(p.s(p.s(p.z()))), p.s(p.s(p.s(p.s(p.z())))))), mod)
     output = cfunc()
     assert nat_to_int(output) == 7
 
 def test_add_convert():
     mod = Module()
     p = Prelude(mod)
-    cfunc = compile(mod, p.add)
+    cfunc = compile(p.add, mod)
     output = cfunc(int_to_nat(p, 12), int_to_nat(p, 34))
     assert nat_to_int(output) == 46
 
@@ -153,7 +153,7 @@ def test_ref():
     body = relay.Let(iv, relay.RefRead(i), body)
     body = relay.Let(i, relay.RefCreate(relay.const(1, dtype='int32')), body)
     mod[three_with_ref] = relay.Function([], body)
-    cfunc = compile(mod, three_with_ref)
+    cfunc = compile(three_with_ref, mod)
     output = cfunc()
     np.testing.assert_allclose(output.asnumpy(), np.array(3, dtype='int32'))
 
@@ -162,11 +162,11 @@ def test_tuple():
     # tvm is broken on tuple. uncomment after 3026 is merged.
     return
     mod = Module()
-    cfunc = compile(mod,
-                    Function([],
+    cfunc = compile(Function([],
                              relay.TupleGetItem(relay.Tuple([relay.const(3, dtype='int32'),
                                                              relay.const(4.0, dtype='float32')]),
-                                                1)))
+                                                1)),
+                    mod)
     np.testing.assert_allclose(cfunc().asnumpy(), np.array(4.0, dtype='float32'))
 
 
@@ -180,7 +180,7 @@ def test_compose():
     func = GlobalVar('func')
     f = Function([x], relay.Call(p.compose(inc, p.double), [x]))
     mod[func] = f
-    cfunc = compile(mod, func)
+    cfunc = compile(func, mod)
     assert nat_to_int(cfunc(p.s(p.s(p.z())))) == 5
 
 
