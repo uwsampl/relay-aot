@@ -47,7 +47,7 @@ def double_example():
     cfunc = compile(f, mod)
 
     a = tvm.nd.array(np.array(1.5, dtype='float32'))
-    output = cfunc(a).asnumpy() // array(6.)
+    output = cfunc(a).asnumpy() # array(6.)
 ```
 
 Currently there is no Python package due to the lack of a package for `tvm`
