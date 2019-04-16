@@ -8,7 +8,7 @@ import aot
 def compile(f, mod):
     tgt = tvm.target.create('llvm')
     ctx = tvm.context('llvm', 0)
-    return aot.compile(f, mod, ctx=ctx, tgt=tgt, use_gpu=False)
+    return aot.compile(f, mod, ctx=ctx, tgt=tgt)
 
 def test_identity():
     mod = Module()
