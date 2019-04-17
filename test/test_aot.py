@@ -159,8 +159,6 @@ def test_ref():
 
 
 def test_tuple():
-    # tvm is broken on tuple. uncomment after 3026 is merged.
-    return
     mod = Module()
     cfunc = compile(Function([],
                              relay.TupleGetItem(relay.Tuple([relay.const(3, dtype='int32'),
