@@ -21,7 +21,6 @@ def must_run_process(args):
     assert proc.returncode == 0
 
 def compile_cpp(source, lib_name, flags=None, lib_path=None):
-    # print(f"lib_name={lib_name}, flags={flags}, lib_path={lib_path}")
     if flags is None:
         flags = []
 
@@ -83,8 +82,8 @@ def compile_cpp(source, lib_name, flags=None, lib_path=None):
 def load_lib(name):
     return ctypes.CDLL(name, ctypes.RTLD_GLOBAL)
 
-def is_primitive(func: relay.Function):
-    return isinstance(func, relay.Function) and func.attrs and func.attrs.Primitive.value == 1
+def is_primitive(e: relay.Expr):
+    return isinstance(e, relay.Function) and e.attrs and e.attrs.Primitive.value == 1
 
 def fuse_check(e, mod):
     vgv = set()
