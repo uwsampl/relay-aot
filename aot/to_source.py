@@ -369,7 +369,6 @@ class ToSource:
             *ret = Apply({vf.expr}, std::vector<Value>(ilist));
         }});
         """
-        # print(source)
         return source
 
 def inter(strs, sep=", "):
