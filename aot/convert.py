@@ -16,7 +16,7 @@ def convert(a, ctx):
             a = (a.op, *a.args)
         elif isinstance(a, tuple):
             assert isinstance(a[0], relay.Constructor)
-            a = relay.backend.interpreter.ConstructorValue(a[0].tag, [convert(arg, ctx) for arg in a[1:]], a[0])
+            a = relay.backend.interpreter.ConstructorValue(a[0].tag, [convert(arg, ctx) for arg in a[1:]], a[0], [])
         elif isinstance(a, relay.backend.interpreter.TensorValue):
             return a
         elif isinstance(a, relay.backend.interpreter.ConstructorValue):
