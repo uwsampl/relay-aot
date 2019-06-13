@@ -150,8 +150,8 @@ class ToSource:
                     ok_case += f"{next_label}:\n"
                 ok_case += f"goto {ok_label};"
                 return f"""
-                CHECK({data_name}->constructor->tag != -1);
-                if ({data_name}->constructor->tag == {pat.constructor.tag}) {{
+                CHECK({data_name}->tag != -1);
+                if ({data_name}->tag == {pat.constructor.tag}) {{
                   {ok_case}
                 }} else {{
                   goto {fail_label};
@@ -415,6 +415,7 @@ def mk_file(body, ctx):
       NodePtr<ConstructorValueNode> n = make_node<ConstructorValueNode>();
       NodePtr<ConstructorNode> con = make_node<ConstructorNode>();
       con->tag = tag;
+      n->tag = tag;
       n->constructor = Constructor(con);
       n->fields = fields;
       return ConstructorValue(n);
