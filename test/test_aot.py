@@ -1,6 +1,7 @@
 from tvm import relay
 from tvm.relay import var, Function, op, Module, GlobalVar, TypeVar, FuncType
 from tvm.relay.prelude import Prelude
+from tvm.relay.testing import add_nat_definitions
 import numpy as np
 import tvm
 import aot
@@ -122,6 +123,7 @@ def int_to_nat(p, i):
 def test_nat_3():
     mod = Module()
     p = Prelude(mod)
+    add_nat_definitions(p)
     cfunc = compile(Function([], p.s(p.s(p.s(p.z())))), mod)
     output = cfunc()
     assert nat_to_int(output) == 3
@@ -129,6 +131,7 @@ def test_nat_3():
 def test_nat_add():
     mod = Module()
     p = Prelude(mod)
+    add_nat_definitions(p)
     cfunc = compile(Function([], p.add(p.s(p.s(p.s(p.z()))), p.s(p.s(p.s(p.s(p.z())))))), mod)
     output = cfunc()
     assert nat_to_int(output) == 7
@@ -136,6 +139,7 @@ def test_nat_add():
 def test_add_convert():
     mod = Module()
     p = Prelude(mod)
+    add_nat_definitions(p)
     cfunc = compile(p.add, mod)
     output = cfunc(int_to_nat(p, 12), int_to_nat(p, 34))
     assert nat_to_int(output) == 46
@@ -171,6 +175,7 @@ def test_tuple():
 def test_compose():
     mod = Module()
     p = Prelude(mod)
+    add_nat_definitions(p)
     x = relay.Var('x')
     inc = GlobalVar('inc')
     mod[inc] = Function([x], p.s(x))
