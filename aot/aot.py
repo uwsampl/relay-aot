@@ -17,8 +17,11 @@ from .convert import convert
 TVM_PATH = os.environ['TVM_HOME']
 
 def must_run_process(args):
-    proc = subprocess.run(args)
-    assert proc.returncode == 0
+    proc = subprocess.run(args, capture_output=True)
+    if proc.returncode != 0:
+        print("STDOUT: ", proc.stdout)
+        print("STDERR:", proc.stderr)
+        raise Exception(f"failed to execute subprocess: {args}")
 
 def compile_cpp(source, lib_name, flags=None, lib_path=None):
     if flags is None:
@@ -253,11 +256,14 @@ def lib_and_func_name(name):
     _LIB_COUNTER += 1
     return lib_name, packed_name
 
-def _mk_wrapper(fn, ctx, params):
-    def _wrapper(*args):
-        new_params = [convert(a, ctx) for a in params]
+def _mk_wrapper(fn, ctx):
+    def _wrapper(*args, **params):
+        converted_params = []
+        for p in params:
+            print(p)
+            converted_params.append(convert(params[p], ctx))
         new_args = [convert(a, ctx) for a in args]
-        return fn(*new_params, *new_args)
+        return fn(*(new_args + converted_params))
     return _wrapper
 
 import sys
@@ -295,8 +301,9 @@ def compile(func, mod, ctx, tgt, name='default'):
     func = compiler.visit(func)
     lib_name, packed_name = lib_and_func_name(name)
     params, source_code = to_source.to_source(mod, func, compiler.gv_map, ctx, packed_name)
+    assert len(params) == 0
     lib_name = f"librelay_aot_{_LIB_COUNTER}.so"
     library_path = compile_cpp(source_code, lib_name, flags=["-O3"])
     _LIB.append(load_lib(library_path))
     fn = get_global_func(packed_name)
-    return _mk_wrapper(fn, ctx, params)
+    return _mk_wrapper(fn, ctx)
