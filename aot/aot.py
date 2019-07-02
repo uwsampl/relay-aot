@@ -119,27 +119,6 @@ def live_from_expr(expr, mod):
     ls.visit(expr)
     return ls.live_set
 
-# def fuse_ops(expr, mod):
-#     """
-#     Modules are the only mutable piece of Relay.
-
-
-#     We write an optimization pass over the module
-#     which destructably updates each function while
-#     optimizing.
-#     """
-#     def fuse_helper(expr, mod):
-#         fused = relay.transform.Sequential([relay.transform.FuseOps(),
-#                                             relay.transform.InferType()])
-#         mod[mod.entry_func] = expr
-#         fused(mod)
-#         return mod[mod.entry_func]
-
-#     ls = live_from_expr(expr, mod)
-#     for var in ls:
-#         mod[var] = fuse_helper(mod[var], mod)
-#     return fuse_helper(expr, mod)
-
 class AoTCompiler(ExprFunctor):
     def __init__(self, mod, tgt) -> None:
         super().__init__()
