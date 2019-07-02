@@ -5,7 +5,7 @@ import subprocess
 import tempfile
 import tvm
 from tvm import relay, get_global_func, target, register_func
-from tvm.relay.expr import Expr, Let
+from tvm.relay.expr import Expr, Function, Let
 from tvm.relay.adt import Constructor
 from tvm.relay.expr_functor import ExprFunctor, ExprVisitor
 from tvm.relay.backend import compile_engine
@@ -119,24 +119,26 @@ def live_from_expr(expr, mod):
     ls.visit(expr)
     return ls.live_set
 
-def fuse_ops(expr, mod):
-    """
-    Modules are the only mutable piece of Relay.
+# def fuse_ops(expr, mod):
+#     """
+#     Modules are the only mutable piece of Relay.
 
 
-    We write an optimization pass over the module
-    which destructably updates each function while
-    optimizing.
-    """
-    def fuse_helper(expr, mod):
-        simplified = relay.ir_pass.simplify_inference(expr)
-        type_checked = relay.ir_pass.infer_type(simplified, mod)
-        return relay.ir_pass.fuse_ops(type_checked)
+#     We write an optimization pass over the module
+#     which destructably updates each function while
+#     optimizing.
+#     """
+#     def fuse_helper(expr, mod):
+#         fused = relay.transform.Sequential([relay.transform.FuseOps(),
+#                                             relay.transform.InferType()])
+#         mod[mod.entry_func] = expr
+#         fused(mod)
+#         return mod[mod.entry_func]
 
-    ls = live_from_expr(expr, mod)
-    for var in ls:
-        mod[var] = fuse_helper(mod[var], mod)
-    return fuse_helper(expr, mod)
+#     ls = live_from_expr(expr, mod)
+#     for var in ls:
+#         mod[var] = fuse_helper(mod[var], mod)
+#     return fuse_helper(expr, mod)
 
 class AoTCompiler(ExprFunctor):
     def __init__(self, mod, tgt) -> None:
@@ -150,21 +152,19 @@ class AoTCompiler(ExprFunctor):
     def add_binding(self, var, value):
         self.bindings[-1].append((var, value))
 
-    def optimize(self, expr: Expr) -> Expr:
-        infer_e = relay.ir_pass.infer_type(expr, self.mod)
-        fused_e = fuse_ops(infer_e, self.mod)
-        fuse_check(fused_e, self.mod)
-        fused_e = relay.ir_pass.infer_type(fused_e, self.mod)
-        fuse_check(fused_e, self.mod)
-        anf_fused = relay.ir_pass.to_a_normal_form(fused_e, self.mod)
-        fuse_check(anf_fused, self.mod)
-        anf_fused = relay.ir_pass.infer_type(anf_fused, self.mod)
-        fuse_check(anf_fused, self.mod)
-        return anf_fused
+    def optimize(self, expr: Function) -> Function:
+        opts = relay.transform.Sequential([relay.transform.FuseOps(),
+                                           relay.transform.ToANormalForm(),
+                                           relay.transform.InferType()])
+        self.mod[self.mod.entry_func] = expr
+        opts(self.mod)
+        ret = self.mod[self.mod.entry_func]
+        fuse_check(ret, self.mod)
+        return ret
 
     def mk_primitive_op(self, func: Expr, args, output_type) -> Expr:
         cc_key = compile_engine.CCacheKey(func, self.tgt)
-        hash = relay.ir_pass.structural_hash(func)
+        hash = relay.analysis.structural_hash(func)
         name = f"op_{hash}"
         if not get_global_func(name, allow_missing=True):
             jit_func = self.engine.jit(cc_key, self.tgt)
