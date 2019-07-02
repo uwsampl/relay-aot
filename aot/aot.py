@@ -133,8 +133,7 @@ class AoTCompiler(ExprFunctor):
 
     def optimize(self, expr: Function) -> Function:
         opts = relay.transform.Sequential([relay.transform.FuseOps(),
-                                           relay.transform.ToANormalForm(),
-                                           relay.transform.InferType()])
+                                           relay.transform.ToANormalForm()])
         self.mod[self.mod.entry_func] = expr
         opts(self.mod)
         ret = self.mod[self.mod.entry_func]
