@@ -134,9 +134,9 @@ class AoTCompiler(ExprFunctor):
     def optimize(self, expr: Function) -> Function:
         opts = relay.transform.Sequential([relay.transform.FuseOps(),
                                            relay.transform.ToANormalForm()])
-        self.mod[self.mod.entry_func] = expr
-        opts(self.mod)
-        ret = self.mod[self.mod.entry_func]
+        self.mod['main'] = expr
+        self.mod = opts(self.mod)
+        ret = self.mod['main']
         fuse_check(ret, self.mod)
         return ret
 
