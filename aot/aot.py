@@ -203,7 +203,7 @@ class AoTCompiler(ExprFunctor):
 
     def visit_match(self, m):
         return CPPMatch(self.visit(m.data),
-                        [(c.lhs, self.visit(c.rhs)) for c in m.clause],
+                        [(c.lhs, self.visit(c.rhs)) for c in m.clauses],
                         m.checked_type)
 
     def visit_op(self, op):

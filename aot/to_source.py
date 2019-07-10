@@ -381,7 +381,6 @@ def inter(strs, sep=", "):
 
 def mk_file(body, ctx):
     return f"""
-    #include <tvm/tvm.h>
     #include <tvm/api_registry.h>
     #include <tvm/relay/interpreter.h>
     #include <iostream>
