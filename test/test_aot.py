@@ -107,10 +107,10 @@ def test_recur_sum_global():
     np.testing.assert_allclose(output.asnumpy(), np.array(55, dtype='int32'))
 
 def nat_to_int(n):
-    if n.constructor.tag == 1:
+    if n.constructor.tag & 0xff == 1:
         return 1 + nat_to_int(n.fields[0])
     else:
-        assert n.constructor.tag == 0
+        assert n.constructor.tag & 0xff == 0
         return 0
 
 def int_to_nat(p, i):
@@ -140,7 +140,7 @@ def test_add_convert():
     mod = Module()
     p = Prelude(mod)
     add_nat_definitions(p)
-    cfunc = compile(p.add, mod)
+    cfunc = compile(mod[p.add], mod)
     output = cfunc(int_to_nat(p, 12), int_to_nat(p, 34))
     assert nat_to_int(output) == 46
 
@@ -183,7 +183,7 @@ def test_compose():
     func = GlobalVar('func')
     f = Function([x], relay.Call(p.compose(inc, p.double), [x]))
     mod[func] = f
-    cfunc = compile(func, mod)
+    cfunc = compile(mod[func], mod)
     assert nat_to_int(cfunc(p.s(p.s(p.z())))) == 5
 
 
