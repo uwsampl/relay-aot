@@ -6,10 +6,12 @@ import numpy as np
 import tvm
 import aot
 
+
 def compile(f, mod):
     tgt = tvm.target.create('llvm')
     ctx = tvm.context('llvm', 0)
     return aot.compile(f, mod, ctx=ctx, tgt=tgt)
+
 
 def test_identity():
     mod = Module()
@@ -19,6 +21,7 @@ def test_identity():
     a = tvm.nd.array(np.array(1.0, dtype='float32'))
     output = cfunc(a)
     np.testing.assert_allclose(output.asnumpy(), a.asnumpy())
+
 
 def test_add():
     mod = Module()
@@ -33,6 +36,7 @@ def test_add():
     output = cfunc(a, b)
     np.testing.assert_allclose(output.asnumpy(), c.asnumpy())
 
+
 def test_mult_op():
     mod = Module()
     x = var('x', shape=())
@@ -46,6 +50,7 @@ def test_mult_op():
     output = cfunc(a, b)
     np.testing.assert_allclose(output.asnumpy(), np.exp(a.asnumpy() + b.asnumpy()))
 
+
 def test_double():
     mod = Module()
     x = var('x', shape=())
@@ -57,12 +62,14 @@ def test_double():
     output = cfunc(a)
     np.testing.assert_allclose(output.asnumpy(), np.array(6.0, dtype='float32'))
 
+
 def test_42():
     mod = Module()
     func = Function([], relay.const(42))
     cfunc = compile(func, mod)
     output = cfunc()
     np.testing.assert_allclose(output.asnumpy(), np.array(42.0, dtype='float32'))
+
 
 def test_add_42():
     mod = Module()
@@ -73,6 +80,7 @@ def test_add_42():
     output = cfunc(a)
     np.testing.assert_allclose(output.asnumpy(), np.array(84.0, dtype='float32'))
 
+
 def test_int_mult_3():
     mod = Module()
     x = var('x', dtype='int32', shape=())
@@ -81,6 +89,7 @@ def test_int_mult_3():
     a = tvm.nd.array(np.array(4, dtype='int32'))
     output = cfunc(a)
     np.testing.assert_allclose(output.asnumpy(), np.array(12, dtype='int32'))
+
 
 def test_abs():
     mod = Module()
@@ -94,6 +103,7 @@ def test_abs():
     output = cfunc(a)
     np.testing.assert_allclose(output.asnumpy(), np.array(34.0, dtype='float32'))
 
+
 def test_recur_sum_global():
     mod = Module()
     x = var('x', dtype='int32', shape=())
@@ -106,6 +116,7 @@ def test_recur_sum_global():
     output = cfunc()
     np.testing.assert_allclose(output.asnumpy(), np.array(55, dtype='int32'))
 
+
 def nat_to_int(n):
     if n.constructor.tag & 0xff == 1:
         return 1 + nat_to_int(n.fields[0])
@@ -113,12 +124,14 @@ def nat_to_int(n):
         assert n.constructor.tag & 0xff == 0
         return 0
 
+
 def int_to_nat(p, i):
     if i > 0:
         return p.s(int_to_nat(p, i - 1))
     else:
         assert i == 0
         return p.z()
+
 
 def test_nat_3():
     mod = Module()
@@ -128,6 +141,7 @@ def test_nat_3():
     output = cfunc()
     assert nat_to_int(output) == 3
 
+
 def test_nat_add():
     mod = Module()
     p = Prelude(mod)
@@ -136,13 +150,15 @@ def test_nat_add():
     output = cfunc()
     assert nat_to_int(output) == 7
 
+
 def test_add_convert():
     mod = Module()
     p = Prelude(mod)
     add_nat_definitions(p)
-    cfunc = compile(mod[p.add], mod)
+    cfunc = compile(p.add, mod)
     output = cfunc(int_to_nat(p, 12), int_to_nat(p, 34))
     assert nat_to_int(output) == 46
+
 
 def test_ref():
     mod = relay.Module()
@@ -183,25 +199,27 @@ def test_compose():
     func = GlobalVar('func')
     f = Function([x], relay.Call(p.compose(inc, p.double), [x]))
     mod[func] = f
-    cfunc = compile(mod[func], mod)
+    cfunc = compile(func, mod)
     assert nat_to_int(cfunc(p.s(p.s(p.z())))) == 5
 
 
-#def test_recur_sum_local():
-#    mod = Module()
-#    x = var('x', dtype='int32', shape=())
-#    t = relay.TensorType(dtype='int32', shape=())
-#    sum = relay.Var('sum', type_annotation=relay.FuncType([t], t))
-#    c = relay.const(0)
-#    func = Function([x],
-#                    relay.If(op.less(x, c), c, x + sum(x - relay.const(1))),
-#                    t)
-#    body = relay.Let(sum, func, sum(relay.const(10)))
-#    cfunc = compile(mod, Function([], body))
-#    output = cfunc()
-#    np.testing.assert_allclose(output.asnumpy(), np.array(55, dtype='int32'))
+def test_recur_sum_local():
+    mod = Module()
+    x = var('x', dtype='int32', shape=())
+    t = relay.TensorType(dtype='int32', shape=())
+    sum = relay.Var('sum', type_annotation=relay.FuncType([t], t))
+    c = relay.const(0)
+    func = Function([x],
+                    relay.If(op.less(x, c), c, x + sum(x - relay.const(1))),
+                    t)
+    body = relay.Let(sum, func, sum(relay.const(10)))
+    cfunc = compile(Function([], body), mod)
+    output = cfunc()
+    np.testing.assert_allclose(output.asnumpy(), np.array(55, dtype='int32'))
+
 
 if __name__ == "__main__":
+    test_recur_sum_local()
     test_identity()
     test_add()
     test_mult_op()

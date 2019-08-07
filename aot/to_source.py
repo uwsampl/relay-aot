@@ -51,7 +51,7 @@ class ToSource:
         return name
 
     # return (str, str) with lhs being stmts, and rhs being expression
-    def visit(self, node, local=True, name=None):
+    def visit(self, node, *, local=True, name=None):
         if isinstance(node, little_cpp.PackedCall):
             res = self.visit_packed_call(node)
         elif isinstance(node, little_cpp.CPPFunction):
@@ -227,10 +227,10 @@ class ToSource:
     def visit_global_var(self, gv):
         if gv not in self.declare_map:
             name = self.fresh_global_name()
-            self.declare_map[gv] = f"{name}()"
+            self.declare_map[gv] = f"{name}"
             vgv = self.visit(self.gv_map[gv], local=False, name=name)
             assert vgv.stmt == ""
-            assert vgv.expr == f"{name}()"
+            assert vgv.expr == f"{name}"
         return ExprWithStmt(self.declare_map[gv])
 
     def visit_args(self, args):
@@ -254,9 +254,9 @@ class ToSource:
         for var, value in decl.bindings:
             local_name = self.fresh_local_name(var)
             self.name_map[var] = local_name
-            vv = self.visit(value)
+            vv = self.visit(value, name=local_name)
             source += vv.stmt
-            source += f"Value {local_name} = {vv.expr};\n"
+            source += f"""Value {local_name} = {vv.expr};"""
         vb = self.visit(decl.body)
         source += vb.stmt
         return ExprWithStmt(vb.expr, source)
@@ -324,9 +324,10 @@ class ToSource:
             self.name_map[param] = pname
             body += f"Value {pname} = {vec}.at({i});\n"
 
+        body += f"Value {name} = self;\n"
         vb = self.visit(func.body)
         body = body + vb.stmt + f"""return {vb.expr};"""
-        expr = f"""FunctionValueNode::make([=](const std::vector<Value>& {vec}) {{
+        expr = f"""FunctionValueNode::make([=](const std::vector<Value>& {vec}, const Value& self) {{
                 {body}
             }});
             """
@@ -337,15 +338,16 @@ class ToSource:
             if name is None:
                 name = self.fresh_global_name()
             self.declare += f"""
-            static Value {name}() {{
+            static Value {name}_func() {{
               static Value ret = {expr};
               return ret;
             }}
+            Value {name} = {name}_func();
             """
-            return ExprWithStmt(f"{name}()")
+            return ExprWithStmt(f"{name}")
 
     def mk_register_api(self, name: str, func) -> str:
-        vf = self.visit(func, False)
+        vf = self.visit(func, local=False)
         assert vf.stmt == ""
         source = self.declare
 
@@ -423,14 +425,15 @@ def mk_file(body, ctx):
     /*! \\brief A Function value. */
     class FunctionValue;
 
+    using function_value_t = std::function<Value(const std::vector<Value>&, const Value&)>;
     struct FunctionValueNode : ValueNode {{
-      std::function<Value(const std::vector<Value>&)> f;
+      function_value_t f;
 
       FunctionValueNode() {{ }}
 
       void VisitAttrs(tvm::AttrVisitor* v) final {{ }}
 
-      TVM_DLL static FunctionValue make(const std::function<Value(const std::vector<Value>&)>& f);
+      TVM_DLL static FunctionValue make(const function_value_t& f);
 
       static constexpr const char* _type_key = "relay.FunctionValue";
       TVM_DECLARE_NODE_TYPE_INFO(FunctionValueNode, ValueNode);
@@ -438,14 +441,14 @@ def mk_file(body, ctx):
 
     RELAY_DEFINE_NODE_REF(FunctionValue, FunctionValueNode, Value);
 
-    FunctionValue FunctionValueNode::make(const std::function<Value(const std::vector<Value>&)>& f) {{
+    FunctionValue FunctionValueNode::make(const function_value_t& f) {{
       NodePtr<FunctionValueNode> n = make_node<FunctionValueNode>();
       n->f = f;
       return FunctionValue(n);
     }}
 
     Value Apply(const Value& op, const std::vector<Value>& args) {{
-      return Downcast<FunctionValue>(op)->f(args);
+      return Downcast<FunctionValue>(op)->f(args, op);
     }}
 
     {body}
