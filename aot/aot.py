@@ -5,7 +5,7 @@ import subprocess
 import tempfile
 import tvm
 from tvm import relay, get_global_func, target, register_func
-from tvm.relay.expr import Expr, Function, Let
+from tvm.relay.expr import Expr, Function, Let, GlobalVar
 from tvm.relay.adt import Constructor
 from tvm.relay.expr_functor import ExprFunctor, ExprVisitor
 from tvm.relay.backend import compile_engine
@@ -85,40 +85,6 @@ def load_lib(name):
 def is_primitive(e: relay.Expr):
     return isinstance(e, relay.Function) and e.attrs and e.attrs.Primitive.value == 1
 
-def fuse_check(e, mod):
-    vgv = set()
-
-    class CheckFused(ExprVisitor):
-        def visit_function(self, f):
-            if not is_primitive(f):
-                self.visit(f.body)
-
-        def visit_global_var(self, gv):
-            if gv not in vgv:
-                vgv.add(gv)
-                self.visit(mod[gv])
-
-        def visit_op(self, op):
-            raise Exception('should has no op outside of prim')
-
-    CheckFused().visit(e)
-
-class LiveSet(ExprVisitor):
-    def __init__(self, mod):
-        self.live_set = set()
-        self.mod = mod
-        super().__init__()
-
-    def visit_global_var(self, var):
-        if not var in self.live_set:
-            self.live_set.add(var)
-            self.visit(self.mod[var])
-
-def live_from_expr(expr, mod):
-    ls = LiveSet(mod)
-    ls.visit(expr)
-    return ls.live_set
-
 class AoTCompiler(ExprFunctor):
     def __init__(self, mod, tgt) -> None:
         super().__init__()
@@ -137,7 +103,6 @@ class AoTCompiler(ExprFunctor):
         self.mod['main'] = expr
         self.mod = opts(self.mod)
         ret = self.mod['main']
-        fuse_check(ret, self.mod)
         return ret
 
     def mk_primitive_op(self, func: Expr, args, output_type) -> Expr:
@@ -268,6 +233,9 @@ def compile(func, mod, ctx, tgt, name='default'):
         will convert them to the right format and call the compiled func.
     """
     global _LIB
+    if isinstance(func, GlobalVar):
+        func = mod[func]
+    assert isinstance(func, Function)
     compiler = AoTCompiler(mod, tgt)
     func = compiler.optimize(func)
     func = compiler.visit(func)
