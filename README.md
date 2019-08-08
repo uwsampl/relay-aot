@@ -18,7 +18,7 @@ The ahead of time compiler comes as a standalone library which exposes a
 primitive `compile` function which compiles a `relay.Function`
 into a Python closure which wraps the compiled native code.
 
-The compiler's design is straight forward it lowers functions into a
+The compiler's design is straight forward. It lowers functions into a
 small C++-like IR, and generates a C++ program which can be compiled
 and dynamically linked. We extract the corresponding symbol from the
 dynamic library, and wrap it as a Python closure.
