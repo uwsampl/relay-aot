@@ -218,8 +218,28 @@ def test_recur_sum_local():
     np.testing.assert_allclose(output.asnumpy(), np.array(55, dtype='int32'))
 
 
+def test_local_local_rec_outer_scope():
+    mod = Module()
+    x = var('x', dtype='int32', shape=())
+    t = relay.TensorType(dtype='int32', shape=())
+    sum = relay.Var('sum', type_annotation=relay.FuncType([t], t))
+    c = relay.const(0)
+
+    # we define a locally recursive function inside another function's scope
+    # and have that function return the closure of the locally recursive function
+    inner_func = Function([x],
+                    relay.If(op.less(x, c), c, x + sum(x - relay.const(1))),
+                    t)
+    outer_func_body = relay.Let(sum, inner_func, sum)
+    outer_func = Function([], outer_func_body)
+    f = relay.Var('f')
+    body = relay.Let(f, outer_func(), f(relay.const(10)))
+    cfunc = compile(Function([], body), mod)
+    output = cfunc()
+    np.testing.assert_allclose(output.asnumpy(), np.array(55, dtype='int32'))
+
+
 if __name__ == "__main__":
-    test_recur_sum_local()
     test_identity()
     test_add()
     test_mult_op()
@@ -235,3 +255,5 @@ if __name__ == "__main__":
     test_ref()
     test_tuple()
     test_compose()
+    test_recur_sum_local()
+    test_local_local_rec_outer_scope()
