@@ -265,6 +265,8 @@ class ToSource:
         assert isinstance(tt, relay.ty.TensorType)
         if tt.dtype == 'int32':
             return 'dtype_i32'
+        elif tt.dtype == 'int8':
+            return 'dtype_i8'
         elif tt.dtype == 'float32':
             return 'dtype_f32'
         elif tt.dtype == 'bool':
@@ -395,6 +397,7 @@ def mk_file(body, ctx):
     static DLDataType dtype_u32 = DLDataType {{ .code = DLDataTypeCode::kDLUInt, .bits = 32, .lanes = 1 }};
     static DLDataType dtype_u1 = DLDataType {{ .code = DLDataTypeCode::kDLUInt, .bits = 1, .lanes = 1 }};
     static DLDataType dtype_i32 = DLDataType {{ .code = DLDataTypeCode::kDLInt, .bits = 32, .lanes = 1 }};
+    static DLDataType dtype_i8 = DLDataType {{ .code = DLDataTypeCode::kDLInt, .bits = 8, .lanes = 1 }};
     static DLContext context = DLContext {{ .device_type = DLDeviceType({ctx.device_type}), .device_id = {ctx.device_id} }};
 
     static bool NDToBool(const NDArray& nd) {{
