@@ -198,9 +198,9 @@ def lib_and_func_name(name):
 
 def _mk_wrapper(fn, ctx, constants):
     def _wrapper(*args):
-        new_params = [convert(a, ctx) for a in params]
+        new_constants = [convert(a, ctx) for a in constants]
         new_args = [convert(a, ctx) for a in args]
-        return fn(*new_params, *new_args)
+        return fn(*new_constants, *new_args)
     return _wrapper
 
 import sys
