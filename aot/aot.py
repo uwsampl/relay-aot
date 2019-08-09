@@ -196,7 +196,7 @@ def lib_and_func_name(name):
     _LIB_COUNTER += 1
     return lib_name, packed_name
 
-def _mk_wrapper(fn, ctx, params):
+def _mk_wrapper(fn, ctx, constants):
     def _wrapper(*args):
         new_params = [convert(a, ctx) for a in params]
         new_args = [convert(a, ctx) for a in args]
@@ -240,9 +240,9 @@ def compile(func, mod, ctx, tgt, name='default'):
     func = compiler.optimize(func)
     func = compiler.visit(func)
     lib_name, packed_name = lib_and_func_name(name)
-    params, source_code = to_source.to_source(mod, func, compiler.gv_map, ctx, packed_name)
+    constants, source_code = to_source.to_source(mod, func, compiler.gv_map, ctx, packed_name)
     lib_name = f"librelay_aot_{_LIB_COUNTER}.so"
     library_path = compile_cpp(source_code, lib_name, flags=["-O3"])
     _LIB.append(load_lib(library_path))
     fn = get_global_func(packed_name)
-    return _mk_wrapper(fn, ctx, params)
+    return _mk_wrapper(fn, ctx, constants)
