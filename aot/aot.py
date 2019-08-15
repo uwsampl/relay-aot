@@ -196,17 +196,22 @@ def lib_and_func_name(name):
     _LIB_COUNTER += 1
     return lib_name, packed_name
 
-def _mk_wrapper(fn, ctx, constants):
+import time
+
+def _mk_wrapper(fn, ctx, constants, record_time):
     def _wrapper(*args):
         new_constants = [convert(a, ctx) for a in constants]
         new_args = [convert(a, ctx) for a in args]
-        return fn(*new_constants, *new_args)
+        begin = time.perf_counter()
+        res = fn(*new_constants, *new_args)
+        end = time.perf_counter()
+        return res if not record_time else (res, end - begin)
     return _wrapper
 
 import sys
 sys.setrecursionlimit(10000)
 
-def compile(func, mod, ctx, tgt, name='default'):
+def compile(func, mod, ctx, tgt, name='default', record_time=False):
     """Compile a relay function into a native library function.
 
     Parameters
@@ -225,6 +230,9 @@ def compile(func, mod, ctx, tgt, name='default'):
 
     name: String
         The name of the target binary library.
+
+    record_time: Bool
+        Time cost to call f?
 
     Returns
     -------
@@ -245,4 +253,4 @@ def compile(func, mod, ctx, tgt, name='default'):
     library_path = compile_cpp(source_code, lib_name, flags=["-O3"])
     _LIB.append(load_lib(library_path))
     fn = get_global_func(packed_name)
-    return _mk_wrapper(fn, ctx, constants)
+    return _mk_wrapper(fn, ctx, constants, time)
