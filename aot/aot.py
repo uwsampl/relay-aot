@@ -253,4 +253,4 @@ def compile(func, mod, ctx, tgt, name='default', record_time=False):
     library_path = compile_cpp(source_code, lib_name, flags=["-O3"])
     _LIB.append(load_lib(library_path))
     fn = get_global_func(packed_name)
-    return _mk_wrapper(fn, ctx, constants, time)
+    return _mk_wrapper(fn, ctx, constants, record_time)
