@@ -35,7 +35,7 @@ class ToSource:
         return name
 
     def sanitize(self, str):
-        return str.replace("-", "_")
+        return str.replace("-", "_").replace("/", "_")
 
     def fresh_local_name(self, var=None):
         if var is not None:
