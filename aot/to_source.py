@@ -434,7 +434,7 @@ def mk_file(body, ctx):
 
       FunctionValueNode() {{ }}
 
-      void VisitAttrs(tvm::AttrVisitor* v) final {{ }}
+      void VisitAttrs(tvm::AttrVisitor* v) {{ }}
 
       TVM_DLL static FunctionValue make(const function_value_t& f);
 
