@@ -405,7 +405,7 @@ def mk_file(body, ctx):
       cpu_ctx.device_type = kDLCPU;
       cpu_ctx.device_id = 0;
       NDArray cpu_array = nd.CopyTo(cpu_ctx);
-      CHECK_EQ(TVMType2Type(cpu_array->dtype), Bool());
+      CHECK_EQ(DataType(cpu_array->dtype), DataType::Bool());
       return reinterpret_cast<uint8_t*>(cpu_array->data)[0];
     }}
 
