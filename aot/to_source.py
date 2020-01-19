@@ -89,7 +89,7 @@ class ToSource:
 
     def visit_ref_create(self, node):
         vv = self.visit(node.value)
-        return ExprWithStmt(f"RefValueNode::make({vv.expr})", vv.stmt)
+        return ExprWithStmt(f"RefValue({vv.expr})", vv.stmt)
 
     def visit_ref_read(self, node):
         vr = self.visit(node.ref)
@@ -99,11 +99,11 @@ class ToSource:
         vr = self.visit(node.ref)
         vv = self.visit(node.value)
         stmt = vr.stmt + vv.stmt + f"Downcast<RefValue>({vr.expr})->value={vv.expr};\n"
-        return ExprWithStmt("TupleValueNode::make({})", stmt)
+        return ExprWithStmt("runtime::ADT::Tuple()", stmt)
 
     def visit_tuple_getitem(self, node):
         vt = self.visit(node.tuple_value)
-        return ExprWithStmt(f"Downcast<TupleValue>({vt.expr})->fields[{node.index}]", vt.stmt)
+        return ExprWithStmt(f"Downcast<runtime::ADT>({vt.expr})[{node.index}]", vt.stmt)
 
     def visit_constructor(self, node):
         args_str, stmt_str = self.visit_args(node.fields)
@@ -196,7 +196,9 @@ class ToSource:
             vx = self.visit(x)
             expr.append(vx.expr)
             stmt_str += vx.stmt
-        return ExprWithStmt(f"TupleValueNode::make({{{inter(expr)}}})", stmt_str)
+        list_name = self.fresh_local_name()
+        stmt_str += f"std::vector<ObjectRef> {list_name} = {{{inter(expr)}}};"
+        return ExprWithStmt(f"runtime::ADT::Tuple({list_name})", stmt_str)
 
     def visit_if(self, node):
         vc = self.visit(node.cond)
@@ -291,9 +293,9 @@ class ToSource:
                 assert isinstance(ty, relay.ty.TupleType)
                 tuple_name = self.fresh_local_name()
                 nonlocal decl_str
-                decl_str += f"TupleValue {tuple_name} = Downcast<TupleValue>({arg});\n"
+                decl_str += f"runtime::ADT {tuple_name} = Downcast<runtime::ADT>({arg});\n"
                 for i, t in enumerate(ty.fields):
-                    convert_input(t, f"{tuple_name}->fields[{i}]")
+                    convert_input(t, f"{tuple_name}[{i}]")
         assert len(call.args_type) == len(call.args)
         for i in range(len(call.args_type)):
             convert_input(call.args_type[i], args[i])
@@ -307,7 +309,7 @@ class ToSource:
                 return tensor_name
             else:
                 assert isinstance(ty, relay.ty.TupleType)
-                return f"TupleValueNode::make({{{inter([convert_output(t) for t in ty.fields])}}})"
+                return f"runtime::ADTObj::make({{{inter([convert_output(t) for t in ty.fields])}}})"
         out = convert_output(call.ret_type)
         return ExprWithStmt(out, f"""
             {decl_str}
@@ -385,8 +387,8 @@ def inter(strs, sep=", "):
 
 def mk_file(body, ctx):
     return f"""
+    #include <tvm/runtime/container.h>
     #include <tvm/runtime/registry.h>
-    #include <tvm/packed_func_ext.h>
     #include <tvm/ir/env_func.h>
     #include <tvm/relay/interpreter.h>
     #include <iostream>
@@ -416,7 +418,7 @@ def mk_file(body, ctx):
     }}
 
     static ConstructorValue TagToCV(size_t tag, const tvm::Array<ObjectRef>& fields) {{
-      ObjectPtr<ConstructorValueNode> n = make_object<ConstructorValueNode>();
+      ObjectPtr<ConstructorValueObj> n = make_object<ConstructorValueObj>();
       ObjectPtr<ConstructorNode> con = make_object<ConstructorNode>();
       con->tag = tag;
       n->tag = tag;
