@@ -301,15 +301,18 @@ class ToSource:
             convert_input(call.args_type[i], args[i])
 
         def convert_output(ty):
+            nonlocal decl_str
             if isinstance(ty, relay.ty.TensorType):
                 tensor_name = self.fresh_local_name()
-                nonlocal decl_str
                 decl_str += f"NDArray {tensor_name} = NDArray::Empty({self.nd_shape(ty)}, {self.nd_dtype(ty)}, context);\n"
                 args_str.append(f"{tensor_name}")
                 return tensor_name
             else:
                 assert isinstance(ty, relay.ty.TupleType)
-                return f"runtime::ADTObj::make({{{inter([convert_output(t) for t in ty.fields])}}})"
+                list_name = self.fresh_local_name()
+                list_members = inter([convert_output(t) for t in ty.fields])
+                decl_str += f"std::vector<ObjectRef> {list_name} = {{{list_members}}};"
+                return f"runtime::ADT::Tuple({list_name})"
         out = convert_output(call.ret_type)
         return ExprWithStmt(out, f"""
             {decl_str}

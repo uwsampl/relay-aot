@@ -188,6 +188,32 @@ def test_tuple():
     np.testing.assert_allclose(cfunc().asnumpy(), np.array(4.0, dtype='float32'))
 
 
+def test_get_valid_counts():
+    # Based on test_get_valid_counts in tvm's test_op_level5.
+    # Tests the case of a packed func returning a Relay tuple.
+    # Only checks the shapes of the output because the reference implementation
+    # is long and inconvenient.
+    shape = (1, 2500, 6)
+    score_threshold = 0
+    id_index = 0
+    score_index = 1
+    np_data = np.random.uniform(low=-2, high=2, size=shape).astype("float32")
+    mod = Module()
+    cfunc = compile(
+        relay.Function(
+            [],
+            relay.vision.get_valid_counts(
+                relay.const(np_data), score_threshold, id_index, score_index
+            ).astuple()),
+        mod)
+
+    relay_out = cfunc()
+    out1 = relay_out[0].asnumpy()
+    out2 = relay_out[1].asnumpy()
+    assert out1.shape == (shape[0],)
+    assert out2.shape == shape
+
+
 def test_compose():
     mod = Module()
     p = Prelude(mod)
@@ -254,6 +280,7 @@ if __name__ == "__main__":
     test_add_convert()
     test_ref()
     test_tuple()
+    test_get_valid_counts()
     test_compose()
     test_recur_sum_local()
     test_local_local_rec_outer_scope()
