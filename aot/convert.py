@@ -9,7 +9,7 @@ def convert(a, ctx):
             a = np.array(a, dtype='int32')
         elif isinstance(a, np.ndarray):
             a = tvm.nd.array(a, ctx)
-        elif isinstance(a, tvm.ndarray.NDArray):
+        elif isinstance(a, tvm.runtime.NDArray):
             return a
         elif isinstance(a, relay.Call):
             assert isinstance(a.op, relay.Constructor)
