@@ -1,5 +1,6 @@
 from tvm import relay
-from tvm.relay import var, Function, op, Module, GlobalVar, TypeVar, FuncType
+from tvm import IRModule as Module
+from tvm.relay import var, Function, op, GlobalVar, TypeVar, FuncType
 from tvm.relay.prelude import Prelude
 from tvm.relay.testing import add_nat_definitions
 import numpy as np
@@ -161,7 +162,7 @@ def test_add_convert():
 
 
 def test_ref():
-    mod = relay.Module()
+    mod = Module()
     three_with_ref = relay.GlobalVar('three_with_ref')
     i = relay.Var('i')
     iv = relay.Var('iv')

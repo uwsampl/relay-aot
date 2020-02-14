@@ -1,6 +1,6 @@
 from . import little_cpp
 from tvm import relay
-from tvm.relay import _module
+# from tvm.relay import _module
 from tvm.relay.prelude import Prelude
 
 class ExprWithStmt:
