@@ -392,6 +392,7 @@ def mk_file(body, ctx):
     #include <tvm/runtime/container.h>
     #include <tvm/runtime/registry.h>
     #include <tvm/ir/env_func.h>
+    #include <tvm/relay/function.h>
     #include <tvm/relay/interpreter.h>
     #include <iostream>
 
