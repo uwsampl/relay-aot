@@ -107,7 +107,7 @@ class AoTCompiler(ExprFunctor):
 
     def mk_primitive_op(self, func: Expr, args, output_type) -> Expr:
         cc_key = compile_engine.CCacheKey(func, self.tgt)
-        hash = relay.analysis.structural_hash(func)
+        hash = tvm.ir.structural_hash(func)
         name = f"op_{hash}"
         if not get_global_func(name, allow_missing=True):
             jit_func = self.engine.jit(cc_key, self.tgt)
