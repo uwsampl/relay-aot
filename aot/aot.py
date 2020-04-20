@@ -99,8 +99,8 @@ class AoTCompiler(ExprFunctor):
         self.bindings[-1].append((var, value))
 
     def optimize(self, expr: Function) -> Function:
-        opts = relay.transform.Sequential([relay.transform.FuseOps(),
-                                           relay.transform.ToANormalForm()])
+        opts = tvm.transform.Sequential([relay.transform.FuseOps(),
+                                         relay.transform.ToANormalForm()])
         self.mod['main'] = expr
         self.mod = opts(self.mod)
         ret = self.mod['main']
